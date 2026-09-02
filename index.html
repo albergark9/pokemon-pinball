@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pinball Alola · Mesa del atardecer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <div id="hud">
+      <div class="stat" id="score"><b>Puntos</b><span>0</span></div>
+      <div class="stat" id="balls"><b>Bolas</b><span>3</span></div>
+      <div class="stat" id="mult"><b>Mult</b><span>x1</span></div>
+      <div class="stat" id="dexn" title="Ver Pokédex"><b>Pokédex</b><span>0</span></div>
+    </div>
+    <div id="banner"><div id="bannerBar"></div><div id="bannerTxt">Pulsa Jugar para empezar</div></div>
+    <button class="btnmini" id="btnPausa">Pausa</button>
+    <button class="btnmini" id="btnDex">Pokédex</button>
+    <button class="btnmini" id="btnMenu">Menú de inicio</button>
+    <div id="sideHelp">Flippers ← → (también acciones especiales) · Lanzador Espacio · Tab Pokédex · P pausa · M sonido</div>
+  </div>
+
+  <div id="stage">
+    <canvas id="c" width="480" height="760"></canvas>
+
+    <div id="menu" class="overlay">
+      <h1>Pinball <em>Alola</em> · Mesa del atardecer</h1>
+      <div class="row"><button id="jugar">Jugar</button></div>
+      <div class="row"><button class="btnmini" id="practica" style="width:auto;padding:10px 18px">Practicar el nivel de Mew</button></div>
+      <div class="row"><button class="btnmini" id="practicaPista" style="width:auto;padding:10px 18px">Practicar la pista de atletismo</button></div>
+      <div class="row"><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
+    </div>
+
+    <div id="info" class="overlay hidden">
+      <h1>Cómo se juega</h1>
+      <p class="sub">Una única mesa en falso 3D basada en tu boceto. Seis habitantes, cada uno con su mecánica:</p>
+      <ul class="mecs">
+        <li><b>Fennekin</b> (borde izquierdo): golpea su botón rojo y luego pulsa <kbd>←</kbd> con la bola cerca — salta un puñado de chispas y su llamarada la dispara en horizontal, cruzando la mesa de lado a lado. Volver a golpear el botón lo apaga.</li>
+        <li><b>Bunneary</b> (entre el seto, a la izquierda de los Koffing): salta sin parar; cualquier toque inicia una captura. Una <b>valla de madera</b> tapa la boca de su carril y hay que derribarla antes para llegar hasta él.</li>
+        <li><b>Carril del Snorlax</b> (abajo a la izquierda): la pared se abre en un canal vertical que baja recto hasta él. La bola que se cuela lo despierta de golpe y sale disparada hacia arriba, así que no se pierde. Además el porrazo la mejora: el primero la convierte en <b>superball</b> (todo puntúa x1,5) y el siguiente en <b>ultraball</b> (x2), pero para ese ascenso hay que llevar al menos <b>10 s</b> siendo superball. Se pierde con la bola.</li>
+        <li><b>Vuelta a la ciénaga</b>: tres flechas —a la derecha de la ciénaga, encima y a la izquierda del Bunneary— se cruzan en ese orden al rodearla de derecha a izquierda. Una vuelta las pone amarillas; la segunda las pone <b>rojas</b> y la valla de madera del Bunneary salta en pedazos. Al terminar la captura, con éxito o sin él, la valla se rehace y las flechas vuelven a empezar.</li>
+        <li><b>Media luna</b> (sobre la ciénaga): dos cuartos de seto separados por un carril vertical, justo por donde el emolga sube y suelta la bola.</li>
+        <li><b>Tres Koffing</b> (centro): rebotes muy potentes sobre una ciénaga. Cada vez que la bola llega al Emolga se enciende una de las dos flechas del carril: con la primera la ciénaga fermenta y los Koffing puntúan el doble, con la segunda hierve como azufre y puntúan el triple. Al perder la bola se apaga todo.</li>
+        <li><b>Carril del Exeggutor</b> (costado izquierdo): la pared se abre en una boca grande; cuela ahí la bola y subirá por la torre vertical hasta la tapa que corona el Exeggutor de Alola. Al golpearla desde abajo sale el Emolga escondido, que eleva la bola y la suelta entre los Koffing.</li>
+        <li><b>Starmie</b> (borde derecho): golpea su botón y pulsa <kbd>→</kbd> con la bola cerca — su giro la dispara directa a la boca del carril. Volver a golpear el botón lo apaga.</li>
+        <li><b>Chandelure</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su fuego se vuelve rojo al disparar.</li>
+        <li><b>Bonus</b>: cada 3 capturas se abre en el centro de la mesa, 5 s después, una pokébola gigante con un agujero que dura 20 s. Cuela la bola y saltarás a un nivel de bonus; se alternan la <b>pista de atletismo</b> y el <b>laboratorio de Mew</b>, empezando por la pista.</li>
+        <li><b>Bonus · Pista de atletismo</b>: cinco carriles horizontales por los que cruzan corredores, uno nuevo cada 5 s en un carril al azar. Scorbunny corre de derecha a izquierda a velocidad media y Pikachu de izquierda a derecha más rápido. Tienes 60 s para derribar a <b>8 corredores</b>: al octavo la carrera termina con 500.000 puntos; si se agota el tiempo, bonus fallido.</li>
+        <li><b>Bonus · Laboratorio secreto</b>: la mesa de Mew: 10 golpes para reventar su tanque y 10 más para tumbarlo mientras vuela, con 90 s en total y su ataque psíquico congelando 3 s la bola que esté a menos de 200 px de él. Solo se cobra el 1.000.000 completando los 10 golpes; si se agota el tiempo, bonus fallido. Al volver hay que capturar otros 3 pokémon para que reaparezca el acceso… y si logras tumbar a Mew una segunda vez, no huirá: lo capturarás por 5.000.000 y ya no habrá más viajes al laboratorio.</li>
+      </ul>
+      <div class="keys">
+        <span><kbd>←</kbd> <kbd>→</kbd></span><span>Flippers · y las acciones de Fennekin y Starmie</span>
+        <span><kbd>Espacio</kbd></span><span>Cargar y soltar el lanzador</span>
+        <span><kbd>Tab</kbd></span><span>Pokédex · <kbd>P</kbd> pausa · <kbd>M</kbd> sonido</span>
+      </div>
+      <p class="sub">Los sprites se cargan solos desde <code>assets/sprites/</code>. Para sustituir cualquiera, arrastra un GIF sobre el juego: el nombre del archivo decide la clave (<code>bunneary.gif</code> &rarr; <code>bunneary</code>) y tiene prioridad sobre el de la carpeta.</p>
+      <div class="row"><button id="cerrarInfo">Volver</button></div>
+    </div>
+
+    <div id="over" class="overlay hidden">
+      <h1>Fin de partida</h1>
+      <p class="sub" id="overTxt"></p>
+      <div id="overGrid" style="flex:1;overflow:auto"></div>
+      <div class="row"><button id="again">Jugar otra vez</button><button class="ghost" id="toMenu">Volver al menú</button></div>
+    </div>
+
+    <div id="dex" class="overlay hidden">
+      <h1>Pokédex</h1>
+      <p class="sub" id="dexTxt"></p>
+      <div id="dexGrid"></div>
+      <div class="row"><button id="dexClose">Volver al juego</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="juego.js"></script>
+</body>
+</html>

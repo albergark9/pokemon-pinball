@@ -1,0 +1,15 @@
+# Dependencias
+/node_modules/
+
+# Versiones antiguas y respaldos: el historial de git es el control de versiones
+/versiones/
+*.zip
+pinball-alola-*.html
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Configuracion local del editor
+/.claude/
