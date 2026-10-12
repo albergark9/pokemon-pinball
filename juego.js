@@ -37,6 +37,16 @@ const SPRITES_EXTERNOS={
    y cualquier ruta escrita a mano arriba se respeta. */
 const RUTA_SPRITES='assets/sprites/';
 for(const k in SPRITES_EXTERNOS) if(!SPRITES_EXTERNOS[k]) SPRITES_EXTERNOS[k]=RUTA_SPRITES+k+'.gif';
+// segundo tablero · el bosque de la cascada (tienen su propia carpeta)
+const RUTA_BOSQUE=RUTA_SPRITES+'segundo tablero/';
+Object.assign(SPRITES_EXTERNOS,{
+  'bounsweet-decoracion':RUTA_BOSQUE+'bounsweet-decoracion.gif',
+  'machamp-decoracion':RUTA_BOSQUE+'machamp-decoracion.gif',
+  'venomoth-decoracion':RUTA_BOSQUE+'venomoth-decoración.gif',
+  'spinda-decoracion':RUTA_BOSQUE+'spinda-decoracion.gif'
+});
+// estos gifs traen mucho lienzo vacío alrededor: se recortan al cargarlos
+const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-decoracion','spinda-decoracion']);
 const CAPTURABLES=['doduo','dragonair','arcanine','noibat','garchomp','tyrunt','skiddo','combusken',
   'braixen','delphox','fennekin','torracat','glaceon','drapion','lucario','venusaur','eevee','lurantis',
   'pichu','noivern','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
@@ -46,7 +56,9 @@ const totalDex=()=>CAPTURABLES.length+(G.mewCapturado?1:0);
 const ESCALA_SPRITE=1.5;
 const SEGMENTOS={
   'fennekin-decoracion':{reposo:[0,0.5],accion:[0.75,1]},   // la llama es el último cuarto
-  starmie:{reposo:[0.5,1],accion:[0,0.5]}
+  starmie:{reposo:[0.5,1],accion:[0,0.5]},
+  // machamp flexiona en el primer tercio y lanza el gancho en el segundo; el último no se usa
+  'machamp-decoracion':{reposo:[0,1/3],accion:[1/3,2/3]}
 };
 const SPRITE_CACHE={};
 (function(){for(const k in SPRITES_EXTERNOS){const s=SPRITES_EXTERNOS[k];
@@ -249,8 +261,26 @@ Reproductor.prototype.enAccion=function(){return !!this.one;};
 
 const GIFS={};
 function usarGif(k,buffer){
-  try{GIFS[k]=new Reproductor(descodificarGIF(buffer),SEGMENTOS[k]);return true;}
+  try{let gif=descodificarGIF(buffer);if(RECORTAR.has(k))gif=recortaGif(gif);
+    GIFS[k]=new Reproductor(gif,SEGMENTOS[k]);return true;}
   catch(e){console.warn('GIF no válido para '+k+':',e.message);return false;}
+}
+/* recorta todos los fotogramas al rectángulo que ocupa el dibujo en el conjunto del gif,
+   para que el tamaño y el apoyo en el suelo no dependan del lienzo vacío */
+function recortaGif(gif){
+  let x0=gif.W,y0=gif.H,x1=-1,y1=-1;
+  gif.frames.forEach(f=>{
+    const d=f.lienzo.getContext('2d').getImageData(0,0,gif.W,gif.H).data;
+    for(let y=0;y<gif.H;y++)for(let x=0;x<gif.W;x++)
+      if(d[(y*gif.W+x)*4+3]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  });
+  if(x1<0)return gif;
+  const w=x1-x0+1,h=y1-y0+1;
+  gif.frames.forEach(f=>{
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(f.lienzo,x0,y0,w,h,0,0,w,h);f.lienzo=c;
+  });
+  gif.W=w;gif.H=h;return gif;
 }
 (function(){for(const k in SPRITES_EXTERNOS){const s=SPRITES_EXTERNOS[k];
   if(!s||!/\.gif(\?|#|$)/i.test(s))continue;
@@ -261,7 +291,9 @@ addEventListener('drop',e=>{
   e.preventDefault();
   [...(e.dataTransfer?e.dataTransfer.files:[])].forEach(f=>{
     // los espacios del nombre valen como guiones: "scorbunny corriendo.gif" -> scorbunny-corriendo
-    const k=f.name.replace(/\.[^.]+$/,'').toLowerCase().trim().replace(/[\s_]+/g,'-');
+    // y las tildes se ignoran: "venomoth-decoración.gif" -> venomoth-decoracion
+    const k=f.name.replace(/\.[^.]+$/,'').toLowerCase().trim().replace(/[\s_]+/g,'-')
+      .normalize('NFD').replace(/[̀-ͯ]/g,'');
     const rd=new FileReader();
     if(/\.gif$/i.test(f.name)){rd.onload=()=>{if(usarGif(k,rd.result))say('Sprite cargado: '+k,150);};rd.readAsArrayBuffer(f);}
     else{rd.onload=()=>{const im=new Image();im.onload=()=>{SPRITE_CACHE[k]=im;say('Sprite cargado: '+k,150);};im.src=rd.result;};rd.readAsDataURL(f);}
@@ -755,8 +787,10 @@ const WILD={x:240,y:390};
    ============================================================ */
 const SUB=6, SPD=0.75, GRAV=0.34*SPD*SPD, MAXV=24*SPD;
 const F={
-  L:{x:168,y:694,len:70,rest:0.52,up:-0.44,a:0.52,w:0,press:false},
-  R:{x:312,y:694,len:70,rest:Math.PI-0.52,up:Math.PI+0.44,a:Math.PI-0.52,w:0,press:false}
+  // len 72: con el reposo a 0.52 rad las puntas se tocan en el centro, sin hueco;
+  // con 62 o menos quedaba sitio para que la bola (d=16) se colase entre ellas
+  L:{x:168,y:694,len:72,rest:0.52,up:-0.44,a:0.52,w:0,press:false},
+  R:{x:312,y:694,len:72,rest:Math.PI-0.52,up:Math.PI+0.44,a:Math.PI-0.52,w:0,press:false}
 };
 const ball={x:447,y:668,vx:0,vy:0,r:8,rot:0,state:'ready',trail:[],idle:0,lane:0};
 let G=null;
@@ -767,7 +801,8 @@ function estadoNuevo(){return {state:'menu',score:0,balls:3,mult:1,dex:new Set()
   saver:0,charge:0,charging:false,paused:false,tick:0,msg:'',msgT:0,snor:0,snorCd:0,
   escena:'alola',hoyo:0,hoyoRetardo:0,mew:null,pista:null,tragado:null,bonusN:0,
   capturasBonus:0,mewHuido:false,mewCapturado:false,mewVisitas:0,flechas:0,
-  orbita:0,orbitaT:0,bola:0,bolaFx:0,bolaT:0,vueltas:0,valla:true,vallaFx:0,vallaPend:false};}
+  orbita:0,orbitaT:0,bola:0,bolaFx:0,bolaT:0,vueltas:0,valla:true,vallaFx:0,vallaPend:false,
+  mesa:'alola',bosque:null};}
 G=estadoNuevo();
 const fx=[],texts=[];let shake=0;
 function addFx(x,y,n,color,spd){for(let i=0;i<n;i++){const a=Math.random()*7,s=(spd||3)*(0.4+Math.random());
@@ -1118,11 +1153,11 @@ function pintarCapturable(ctx,k,x,y,size,t,escala){
   ctx.restore();
 }
 function startCatch(){
-  if(G.mode||G.hoyo>0||G.escena!=='alola')return;
+  if(G.mode||G.hoyo>0||(G.escena!=='alola'&&G.escena!=='bosque'))return;
   const sp=pickWild();
   G.mode='captura';G.timerMax=G.timer=30*60;
   G.wild={sp,hp:3,max:3,x:WILD.x,y:WILD.y,flash:0};
-  say('¡Bunneary llama a un '+sp.n+' salvaje! Golpéalo 3 veces',200);
+  say('¡'+(G.escena==='bosque'?'Spinda':'Bunneary')+' llama a un '+sp.n+' salvaje! Golpéalo 3 veces',200);
   chime([440,554,659]);
 }
 function hurtWild(){
@@ -1148,12 +1183,14 @@ function capturaPaso(){
     G.dex.add(a.sp.k);G.order.push(a.sp.k);
     G.mult=Math.min(6,G.mult+1);
     G.capturasBonus++;
-    if(G.capturasBonus>=3&&!G.mewCapturado&&G.hoyo<=0&&G.hoyoRetardo<=0){
+    // la pokébola del bonus solo existe en la playa
+    if(G.escena==='alola'&&G.capturasBonus>=3&&!G.mewCapturado&&G.hoyo<=0&&G.hoyoRetardo<=0){
       G.hoyoRetardo=300;say('La mesa empieza a vibrar…',150);}
     score(15000,a.x,a.y-50);
-    say('¡'+a.sp.n+' capturado!',200);
+    say('¡'+a.sp.n+' capturado!'+(G.escena==='bosque'?' · las flores se marchitan':''),200);
     addFx(ball.x,ball.y,26,'#ffd27a',5.5);chime([523,659,784,1046],80);
-    G.mode=null;G.wild=null;G.capAnim=null;cierraValla();
+    G.mode=null;G.wild=null;G.capAnim=null;
+    if(G.escena==='bosque')finCapturaBosque();else cierraValla();
     ball.state='play';ball.vy=-2.5;ball.vx=(ball.x<240?1.5:-1.5);
   }
 }
@@ -1165,10 +1202,11 @@ function newBall(keepMult){
   ball.x=447;ball.y=668;ball.vx=0;ball.vy=0;ball.state='ready';ball.trail.length=0;
   ball.idle=0;ball.lane=0;
   G.charge=0;G.charging=false;if(!keepMult)G.mult=1;G.saver=8*60;
-  say('Mantén Espacio: Chandelure carga el disparo',150);
+  say(G.escena==='bosque'?'Mantén Espacio: Machamp prepara el gancho':'Mantén Espacio: Chandelure carga el disparo',150);
 }
 function loseBall(){
   beep(220,.4,'sawtooth',.06);
+  if(G.escena==='bosque')pierdeBolaBosque();
   // reseteo de los estados especiales
   G.fen={boton:false,llama:0,cd:0};G.star={boton:false,giro:0,cd:0};
   if(G.em.fase){G.em.fase=null;}
@@ -1192,7 +1230,8 @@ function gameOver(){
 }
 function startGame(practica){
   G=estadoNuevo();G.state='play';
-  KOFFINGS.forEach(k=>k.lit=0);
+  if(practica==='bosque'){G.mesa=G.escena='bosque';G.bosque=bosqueNuevo();}
+  KOFFINGS.forEach(k=>k.lit=0);BOUNSWEETS.forEach(b=>b.lit=0);
   fx.length=0;texts.length=0;
   $('menu').classList.add('hidden');$('over').classList.add('hidden');
   $('dex').classList.add('hidden');$('info').classList.add('hidden');
@@ -1228,6 +1267,7 @@ function update(){
   if(G.state!=='play'||G.paused)return;
   if(G.escena==='mew'){updateMew();updateHUD();return;}
   if(G.escena==='pista'){updatePista();updateHUD();return;}
+  if(G.escena==='bosque'){updateBosque();updateHUD();return;}
   if(G.tragado){tragadoPaso();updateHUD();return;}
   pasoOrbita();if(G.bolaFx>0)G.bolaFx--;
   if(G.hoyoRetardo>0&&--G.hoyoRetardo<=0)abreHoyo();
@@ -1832,14 +1872,15 @@ function hudPista(t){
 }
 
 /* ---------------- dibujo del bonus ---------------- */
-function gifCentrado(k,x,y,alto,esp){
+/* alza: altura de vuelo sobre el suelo (el sprite sube, la posición de mundo no) */
+function gifCentrado(k,x,y,alto,esp,alza){
   const rep=GIFS[k],im=(!rep&&spriteListo(k))?SPRITE_CACHE[k]:null;
   if(!rep&&!im)return false;
   const W0=rep?rep.W:im.naturalWidth,H0=rep?rep.H:im.naturalHeight;
   const s=PS(y),h=alto*s*ESCALA_SPRITE*2,w=h*W0/H0;
   g.save();g.imageSmoothingEnabled=false;
   if(esp)g.globalAlpha=esp;
-  g.drawImage(rep?rep.lienzo():im,PX(x,y)-w/2,PY(y)-h/2,w,h);
+  g.drawImage(rep?rep.lienzo():im,PX(x,y)-w/2,PY(y)-(alza||0)*s-h/2,w,h);
   g.restore();return true;
 }
 /* Mew dibujado a mano: sirve mientras no haya gif cargado */
@@ -2694,6 +2735,1010 @@ function dChandelure(t){
 }
 
 /* ============================================================
+   SEGUNDO TABLERO · EL BOSQUE DE LA CASCADA
+   Una pradera con tres Bounsweet en el centro, la cueva de
+   Venomoth en la falda de la montaña (izquierda) y una cascada
+   que cae a la derecha. Machamp saca la bola de un gancho.
+   ------------------------------------------------------------
+   Cada visita a la cueva saca a Venomoth, que revolotea hasta
+   que lo golpeas; entonces poliniza la pradera y brotan flores
+   (rojas: Bounsweet x2; rojas y azules: x3). La tercera visita
+   saca a Spinda, que abre el modo captura. Al acabar la
+   captura, bien o mal, las flores se marchitan y se empieza de 0.
+   ============================================================ */
+const lerp=(a,b,u)=>a+(b-a)*u;
+const PRADERA={x:240,y:254,rx:80,ry:72};
+const BOUNSWEETS=[{x:240,y:222},{x:200,y:274},{x:280,y:274}];
+// la cueva es un entrante en la pared izquierda, entre y0 e y1; la bola espera dentro en (x,y)
+const CUEVA={y0:296,y1:392,x:-6,y:344};
+const CUEVA_CH=[[16,296],[3,300],[-12,311],[-23,328],[-26,344],[-23,360],[-12,376],[16,392]];
+// dos troncos caídos flanquean la pradera, como los setos de los koffing en la playa
+// el de la izquierda empieza más abajo: por encima de su extremo pasa Spinda al salir de la cueva
+const TRONCOS=[[],[]];
+for(let i=0;i<=8;i++){const u=i/8;
+  if(i>=2)TRONCOS[0].push([150-Math.sin(u*2.6)*16-u*3,196+u*90]);
+  TRONCOS[1].push([330+Math.sin(u*2.6)*16+u*3,196+u*90]);}
+const BOSQUE_CH=[],BOSQUE_PINTA=[];
+(function(){
+  const domo=[];
+  for(let a=180;a>=0;a-=5)domo.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
+  // pared derecha y carril del lanzador: los mismos que en la playa
+  const derecha=[[464,258],[464,700],[430,700]];
+  const guia=[];for(let a=105;a>=-8;a-=5)guia.push([240+186*Math.cos(a*RAD),260-186*Math.sin(a*RAD)]);
+  guia.push([430,300],[430,700]);
+  const bajaDer=[[430,588],[394,650],[312,694]];
+  const izquierda=[[16,260]].concat(CUEVA_CH,[[16,588],[86,650],[168,694]]);
+  BOSQUE_CH.push(domo,derecha,guia,bajaDer,izquierda,TRONCOS[0],TRONCOS[1]);
+  // la pared izquierda se pinta como roca hasta y=470; de ahí abajo, muro normal
+  BOSQUE_PINTA.push(domo,derecha,guia,bajaDer,[[16,470],[16,588],[86,650],[168,694]]);
+})();
+// la cascada cae sobre una poza y sigue en arroyo hasta el estanque
+const POZA={x:378,y:170,rx:22,ry:12};
+const ARROYO=[[378,178],[386,226],[392,276],[388,330],[378,384],[372,430]];
+const ESTANQUE={x:372,y:448,rx:36,ry:20};
+const MACHAMP={x:447,y:712};
+const GANCHO_T=16, GANCHO_IMPACTO=8;   // el puño llega a la bola 8 frames después de soltar
+const VM_ALTO=22, VM_RAD=28;
+const SP_Y=158, SP_AMP=45, SP_PER=220, SP_RAD=20, SP_ALTO=19;   // vaivén de 90 px, de 285 a 195
+// Spinda va y viene de la cueva por este punto, alto y a la izquierda del tronco recortado
+const SP_PASO=[96,166], SP_CUEVA=[CUEVA.x+8,CUEVA.y-46];
+const FLORES_POR_PASADA=14;
+
+function bosqueNuevo(){return{
+  cueva:0,gancho:0,carga:0,
+  estado:0,      // pasadas de polen completadas: con 2, la cueva ya no saca a Venomoth sino a Spinda
+  nivel:0,       // flores que puntúan: 0 ninguna, 1 rojas (x2), 2 rojas y azules (x3)
+  flores:[],polen:[],marchita:0,
+  vm:{fase:null,t:0,x:CUEVA.x,y:CUEVA.y,z:0,px:0,py:0,pz:0,rumbo:0,rumboObj:0,rumboT:0,
+      flash:0,pend:[],emitidas:0,listo:false,espera:0},
+  sp:{fase:null,t:0,x:CUEVA.x,y:CUEVA.y,z:0,px:0,py:0}
+};}
+
+/* ---------------- cueva ---------------- */
+// con Venomoth o Spinda fuera, o en plena captura, la cueva no hace nada
+const cuevaLibre=()=>{const B=G.bosque;return !B.vm.fase&&!B.sp.fase&&!G.mode&&!G.capAnim;};
+/* la cueva libre aspira un poco la bola que pasa cerca de la boca,
+   como la pokébola del bonus en la playa */
+function atraeCueva(){
+  if(!cuevaLibre()||ball.x>78||ball.y<CUEVA.y0-24||ball.y>CUEVA.y1+24)return;
+  ball.vx+=(CUEVA.x-ball.x)*0.0035;ball.vy+=(CUEVA.y-ball.y)*0.0025;
+}
+function compruebaCueva(){
+  const B=G.bosque;
+  // basta con que la bola se meta unos 19 px en el entrante; la que baja
+  // pegada a la pared (x≈31) no llega
+  if(ball.x>12||ball.y<CUEVA.y0||ball.y>CUEVA.y1||!cuevaLibre())return;
+  B.cueva=50;
+  ball.state='held';ball.vx=0;ball.vy=0;ball.x=CUEVA.x;ball.y=CUEVA.y;ball.trail.length=0;
+  barrido(520,150,0.35,'sine',0.05);shake=Math.max(shake,5);
+  score(3000,44,CUEVA.y-34);
+  if(B.estado<2)saleVenomoth();else saleSpinda();
+}
+function expulsaCueva(){
+  ball.state='play';ball.x=CUEVA.x+2;ball.y=CUEVA.y;
+  ball.vx=7.8*SPD;ball.vy=-1.4*SPD;ball.idle=0;
+  addFx(14,CUEVA.y,10,'#c9b8a0',3);beep(240,.1,'square',.045);
+}
+
+/* ---------------- machamp ---------------- */
+function ganchoMachamp(){
+  const B=G.bosque;if(B.gancho>0)return;
+  B.gancho=GANCHO_T;B.carga=G.charge;G.charging=false;
+  if(GIFS['machamp-decoracion'])GIFS['machamp-decoracion'].accion();
+}
+function impactoGancho(){
+  const B=G.bosque;
+  disparaBola(B.carga);
+  shake=Math.max(shake,4+B.carga*6);
+  addFx(MACHAMP.x,676,12,'#e8e6f2',4);
+  beep(110,.12,'square',.06);
+}
+
+/* ---------------- venomoth y el polen ---------------- */
+function saleVenomoth(){
+  Object.assign(G.bosque.vm,{fase:'sale',t:0,x:CUEVA.x,y:CUEVA.y,z:0,flash:0});
+  say('¡Venomoth sale de la cueva! Golpéalo',200);chime([392,523,659],80);
+}
+function vuelveVenomoth(){const v=G.bosque.vm;v.fase='vuelve';v.t=0;v.px=v.x;v.py=v.y;v.pz=v.z;}
+function golpeVenomoth(){
+  const B=G.bosque,v=B.vm;if(v.fase!=='vuela')return;
+  v.fase='poliniza';v.t=0;v.px=v.x;v.py=v.y;v.pz=v.z;v.flash=14;
+  v.pend=plantaFlores(B.estado===0?'roja':'azul');v.emitidas=0;v.listo=false;v.espera=0;
+  score(5000,v.x,v.y-30);addFx(v.x,v.y,16,'#ffb45a',4.5);shake=Math.max(shake,6);
+  beep(760,.1,'triangle',.05);
+  say('¡Venomoth vuela sobre los Bounsweet soltando polen!',200);
+}
+function pasoVenomoth(){
+  const v=G.bosque.vm;if(!v.fase)return;
+  v.t++;if(v.flash>0)v.flash--;
+  if(v.fase==='sale'){
+    const u=Math.min(1,v.t/50),e=u*u*(3-2*u);
+    v.x=lerp(CUEVA.x,110,e);v.y=lerp(CUEVA.y,250,e);v.z=10*e;
+    if(u>=1){v.fase='vuela';v.t=0;v.rumbo=v.rumboObj=-0.3;v.rumboT=50;}
+  } else if(v.fase==='vuela'){
+    // revoloteo errático con giros suaves, como Mew en el laboratorio
+    if(--v.rumboT<=0){v.rumboT=50+Math.random()*70;v.rumboObj=Math.random()*Math.PI*2;}
+    if(v.x<80||v.x>396||v.y<120||v.y>470)v.rumboObj=Math.atan2(320-v.y,240-v.x);
+    let d=v.rumboObj-v.rumbo;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;
+    v.rumbo+=clamp(d,-0.035,0.035);
+    v.x=clamp(v.x+Math.cos(v.rumbo)*1.7,70,406);
+    v.y=clamp(v.y+Math.sin(v.rumbo)*1.7,110,480);
+    v.z=10+Math.sin(v.t/9)*3;
+  } else if(v.fase==='poliniza'){
+    // sube por encima de la pradera y le da vueltas soltando polen
+    const CX=PRADERA.x,CY=PRADERA.y-6;
+    if(v.t<=45){const u=v.t/45,e=u*u*(3-2*u);
+      v.x=lerp(v.px,CX+48,e);v.y=lerp(v.py,CY,e);v.z=lerp(v.pz,50,e);}
+    else{
+      const k=v.t-45,a=k/40;
+      v.x=CX+Math.cos(a)*48;v.y=CY+Math.sin(a)*34;v.z=50+Math.sin(v.t/11)*4;
+      if(v.emitidas<v.pend.length&&k%5===0)lanzaPolen(v,v.pend[v.emitidas++]);
+      if(!v.listo&&k%2===0)lanzaPolen(v,null);
+      if(!v.listo&&v.emitidas>=v.pend.length&&v.pend.every(f=>f.nace>0)){v.listo=true;florecen();}
+      if(v.listo&&++v.espera>40)vuelveVenomoth();
+    }
+  } else if(v.fase==='vuelve'){
+    const u=Math.min(1,v.t/60),e=u*u*(3-2*u);
+    v.x=lerp(v.px,CUEVA.x,e);v.y=lerp(v.py,CUEVA.y,e);v.z=lerp(v.pz,0,e);
+    if(u>=1){v.fase=null;v.t=0;}
+  }
+}
+/* cada mota con flor cae sobre su sitio de la pradera y la hace brotar;
+   las demás solo hacen nube y se apagan en el aire */
+function lanzaPolen(v,flor){
+  const x0=v.x+(Math.random()-.5)*30,y0=v.y+(Math.random()-.5)*12;
+  if(flor)G.bosque.polen.push({x0,y0,z0:v.z,x1:flor.x,y1:flor.y,t:0,
+    dur:50+Math.random()*25,ph:Math.random()*7,flor});
+  else{const a=Math.random()*7,r=10+Math.random()*50;
+    G.bosque.polen.push({x0,y0,z0:v.z,x1:x0+Math.cos(a)*r,y1:y0+Math.sin(a)*r*0.6+12,t:0,
+      dur:30+Math.random()*30,ph:Math.random()*7,flor:null});}
+}
+function posPolen(p){
+  const u=p.t/p.dur;
+  return {x:lerp(p.x0,p.x1,u)+Math.sin(u*Math.PI*2+p.ph)*7*(1-u),y:lerp(p.y0,p.y1,u),
+          z:p.flor?p.z0*(1-u):p.z0*(1-u*0.5)};
+}
+function pasoPolen(){
+  const P=G.bosque.polen;
+  for(let i=P.length-1;i>=0;i--){const p=P[i];
+    if(++p.t<p.dur)continue;
+    if(p.flor){p.flor.nace=1;
+      addFx(p.flor.x,p.flor.y,3,p.flor.color==='roja'?'#ff7a6a':'#8fc0ff',1.4);
+      beep(880+Math.random()*520,.05,'triangle',.02);}
+    P.splice(i,1);
+  }
+}
+function plantaFlores(color){
+  const B=G.bosque,nuevas=[];
+  if(B.marchita>0){B.flores=[];B.marchita=0;}
+  for(let intento=0;nuevas.length<FLORES_POR_PASADA&&intento<500;intento++){
+    const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*0.88;
+    const x=PRADERA.x+Math.cos(a)*PRADERA.rx*r,y=PRADERA.y+Math.sin(a)*PRADERA.ry*r;
+    // ni escondida detrás de un Bounsweet ni pegada a otra flor
+    if(BOUNSWEETS.some(b=>Math.abs(x-b.x)<20&&y>b.y-30&&y<b.y+18))continue;
+    if(B.flores.concat(nuevas).some(f=>Math.hypot(x-f.x,y-f.y)<12))continue;
+    nuevas.push({x,y,color,nace:0,fase:Math.random()*7,tam:0.85+Math.random()*0.35});
+  }
+  B.flores.push(...nuevas);
+  B.flores.sort((a,b)=>a.y-b.y);   // de atrás adelante al pintarlas
+  return nuevas;
+}
+function florecen(){
+  const B=G.bosque;B.estado++;B.nivel=B.estado;
+  say(B.estado===1?'¡Brotan flores rojas! Los Bounsweet puntúan x2'
+                  :'¡Y ahora azules! Los Bounsweet puntúan x3 · Spinda espera en la cueva',240);
+  chime(B.estado===1?[659,880,1046]:[784,1046,1319],75);shake=Math.max(shake,5);
+}
+
+/* ---------------- spinda ---------------- */
+/* punto que está a la fracción u del recorrido de la polilínea r */
+function sobreRuta(r,u){
+  const seg=[];let L=0;
+  for(let i=0;i<r.length-1;i++){const d=Math.hypot(r[i+1][0]-r[i][0],r[i+1][1]-r[i][1]);seg.push(d);L+=d;}
+  let k=u*L;
+  for(let i=0;i<seg.length;i++){
+    if(k<=seg[i]||i===seg.length-1){const f=seg[i]?Math.min(1,k/seg[i]):1;
+      return [lerp(r[i][0],r[i+1][0],f),lerp(r[i][1],r[i+1][1],f)];}
+    k-=seg[i];
+  }
+}
+function saleSpinda(){
+  Object.assign(G.bosque.sp,{fase:'sale',t:0,x:SP_CUEVA[0],y:SP_CUEVA[1],z:0});
+  say('¡Spinda sale de detrás de la cueva! Golpéalo para buscar pokémon',230);
+  chime([523,659,784,1046],70);
+}
+function golpeSpinda(){
+  const p=G.bosque.sp;if(p.fase!=='pasea'||G.mode)return;
+  p.fase='vuelve';p.t=0;p.px=p.x;p.py=p.y;
+  score(4000,p.x,p.y-30);addFx(p.x,p.y,14,'#ff9ea0',4);shake=Math.max(shake,5);
+  startCatch();
+}
+function pasoSpinda(){
+  const p=G.bosque.sp;if(!p.fase)return;p.t++;
+  if(p.fase==='sale'){
+    // a saltitos desde detrás de la cueva hasta el centro, por encima de la pradera
+    const u=Math.min(1,p.t/120);
+    [p.x,p.y]=sobreRuta([SP_CUEVA,SP_PASO,[PRADERA.x,SP_Y]],u);
+    p.z=Math.abs(Math.sin(u*Math.PI*6))*10;
+    if(u>=1){p.fase='pasea';p.t=0;p.z=0;}
+  } else if(p.fase==='pasea'){
+    // vaivén horizontal que cruza la mediatriz de la mesa; arranca hacia la izquierda
+    p.x=PRADERA.x-SP_AMP*Math.sin(p.t/SP_PER*Math.PI*2);p.y=SP_Y;
+    p.z=Math.abs(Math.sin(p.t/9))*3;
+  } else if(p.fase==='vuelve'){
+    // mareado, vuelve a esconderse detrás de la cueva
+    const u=Math.min(1,p.t/100);
+    [p.x,p.y]=sobreRuta([[p.px,p.py],SP_PASO,SP_CUEVA],u);
+    p.z=Math.abs(Math.sin(u*Math.PI*7))*8;
+    if(u>=1)p.fase=null;
+  }
+}
+
+/* ---------------- fin de captura y bola perdida ---------------- */
+function finCapturaBosque(){
+  const B=G.bosque;
+  B.flores.forEach((f,i)=>{if(f.nace&&i%2===0)addFx(f.x,f.y,2,f.color==='roja'?'#ff7a6a':'#8fc0ff',2);});
+  if(B.flores.length)B.marchita=40;
+  B.estado=0;B.nivel=0;
+}
+function pierdeBolaBosque(){
+  const B=G.bosque,v=B.vm;
+  B.cueva=0;B.gancho=0;
+  // si Venomoth seguía revoloteando vuelve a la cueva sin soltar polen: esa visita no cuenta
+  if(v.fase==='sale'||v.fase==='vuela')vuelveVenomoth();
+  if(G.mode)finCapturaBosque();   // perder la bola en plena captura es perder el pokémon
+}
+function guiaBosque(){
+  const B=G.bosque;
+  if(B.sp.fase==='pasea')return 'Golpea a Spinda para buscar pokémon';
+  if(B.vm.fase==='vuela')return 'Golpea a Venomoth para que polinice la pradera';
+  if(B.vm.fase||B.sp.fase||B.cueva>0)return 'Bounsweet puntúa x'+(1+B.nivel);
+  return B.estado>=2?'Mete la bola en la cueva: Spinda espera detrás':'Mete la bola en la cueva de Venomoth';
+}
+
+/* ---------------- física y ciclo ---------------- */
+function golpeBounsweet(b){
+  const n=G.bosque.nivel;
+  b.lit=14;score(800*(1+n),b.x,b.y-30);
+  addFx(b.x,b.y,12,n===2?'#7fb0ff':n===1?'#ff5a5a':'#ff9ec4',4.5);
+  beep(n===2?520:n===1?440:360,.08,'triangle',.05);shake=Math.max(shake,6);
+}
+function physicsBosque(){
+  const B=G.bosque,f=1/SUB;
+  for(let s=0;s<SUB;s++){
+    [F.L,F.R].forEach(fl=>{const tgt=fl.press?fl.up:fl.rest,prev=fl.a;
+      fl.a+=clamp(tgt-fl.a,-0.5*SPD/SUB,0.5*SPD/SUB);fl.w=(fl.a-prev)*SUB;});
+    ball.vy+=GRAV*f;
+    ball.x+=ball.vx*f;ball.y+=ball.vy*f;
+    for(const ch of BOSQUE_CH)
+      for(let i=0;i<ch.length-1;i++)collide(ch[i][0],ch[i][1],ch[i+1][0],ch[i+1][1],7,0.42,0,null);
+    for(const sl of SLINGS)
+      collide(sl.a[0],sl.a[1],sl.b[0],sl.b[1],9,0.35,12.4*SPD,(x,y)=>{score(120);addFx(x,y,6,'#ffc0dc',3);beep(520,.05,'square',.04);shake=Math.max(shake,3);});
+    // bounsweet: rebote muy fuerte, como los koffing
+    BOUNSWEETS.forEach(b=>collide(b.x,b.y,b.x,b.y,23,0.5,9.5*SPD,()=>golpeBounsweet(b)));
+    if(B.vm.fase==='vuela')collide(B.vm.x,B.vm.y,B.vm.x,B.vm.y,VM_RAD,0.5,4*SPD,()=>golpeVenomoth());
+    if(B.sp.fase==='pasea')collide(B.sp.x,B.sp.y,B.sp.x,B.sp.y,SP_RAD,0.5,3.4*SPD,()=>golpeSpinda());
+    if(G.mode==='captura'&&G.wild)collide(G.wild.x,G.wild.y,G.wild.x,G.wild.y,30,0.4,3.5*SPD,()=>hurtWild());
+    flipperHit(F.L);flipperHit(F.R);
+    const sp=Math.hypot(ball.vx,ball.vy);
+    if(sp>MAXV){ball.vx*=MAXV/sp;ball.vy*=MAXV/sp;}
+    ball.vx*=0.99985;ball.vy*=0.99985;
+  }
+  ball.rot+=ball.vx*0.11;
+}
+function updateBosque(){
+  const B=G.bosque;
+  BOUNSWEETS.forEach(b=>{if(b.lit)b.lit--;});
+  if(G.saver>0)G.saver--;
+  if(B.marchita>0&&--B.marchita<=0)B.flores=[];
+  B.flores.forEach(f=>{if(f.nace&&f.nace<30)f.nace++;});
+  pasoPolen();pasoVenomoth();pasoSpinda();
+  if(G.capAnim){capturaPaso();return;}
+  if(B.gancho>0&&--B.gancho===GANCHO_IMPACTO&&ball.state==='ready')impactoGancho();
+  if(B.cueva>0){if(--B.cueva<=0)expulsaCueva();}
+  else if(ball.state==='ready'){
+    // mientras el gancho va de camino la carga ya no sube
+    if(G.charging&&!B.gancho)G.charge=Math.min(1,G.charge+0.022);
+    ball.y=668+G.charge*22;
+  } else if(ball.state==='play'){
+    atraeCueva();
+    physicsBosque();
+    compruebaCueva();
+    if(ball.state==='play'){
+      ball.trail.push({x:ball.x,y:ball.y});if(ball.trail.length>12)ball.trail.shift();
+      const spd=Math.hypot(ball.vx,ball.vy);
+      if(ball.x>434&&ball.y>640&&spd<2.2*SPD){if(++ball.lane>25){ball.state='ready';ball.lane=0;say('Bola de vuelta con Machamp',110);}}
+      else ball.lane=0;
+      if(spd<0.7*SPD){if(++ball.idle>150){ball.vx+=(Math.random()-.5)*6*SPD;ball.vy-=3*SPD;ball.idle=0;shake=Math.max(shake,5);}}
+      else ball.idle=0;
+      if(ball.y>745){
+        if(G.saver>0){say('Salvabolas activado',120);beep(700,.15,'sine',.05);newBall(true);}
+        else loseBall();
+      }
+    }
+  }
+  if(G.mode){
+    G.timer--;
+    if(G.wild&&G.wild.flash)G.wild.flash--;
+    if(G.timer<=0){say('Se escapó… las flores se marchitan',160);beep(200,.3,'sawtooth',.05);
+      G.mode=null;G.wild=null;finCapturaBosque();}
+  }
+}
+
+/* ---------------- dibujo del bosque ---------------- */
+/* todo el fondo del bosque es fijo: se pinta una vez en una capa y luego solo se copia;
+   lo único que se mueve son las gotas sobre la roca mojada de detrás del salto */
+function fondoBosque(t){
+  g.drawImage(capaFija('fondoBosque',pintaFondoBosque),0,0);
+  gotasCascada(t);
+}
+function pintaFondoBosque(){
+  const cielo=g.createLinearGradient(0,0,0,H);
+  cielo.addColorStop(0,'#1f4d63');cielo.addColorStop(.2,'#6aa894');
+  cielo.addColorStop(.3,'#2c5c3e');cielo.addColorStop(1,'#0f2618');
+  g.fillStyle=cielo;g.fillRect(-20,-20,W+40,H+40);
+  g.save();
+  // dos filas de pinos lejanos
+  for(let fila=0;fila<2;fila++){
+    g.fillStyle=fila?'#1d4430':'#2f6248';
+    const base=196+fila*40;
+    for(let i=0;i<16;i++){
+      const x=i*34-14+fila*17, h=46+((i*37+fila*11)%34);
+      g.beginPath();g.moveTo(x-15,base);g.lineTo(x,base-h);g.lineTo(x+15,base);g.closePath();g.fill();
+    }
+    g.fillRect(-20,base,W+40,H);
+  }
+  // la montaña, a la izquierda: en su falda se abre la cueva de Venomoth
+  const roca=g.createLinearGradient(0,0,200,0);
+  roca.addColorStop(0,'#3b3946');roca.addColorStop(1,'#5e5b6b');
+  g.fillStyle=roca;
+  g.beginPath();g.moveTo(-20,H);g.lineTo(-20,150);g.lineTo(22,84);g.lineTo(46,52);g.lineTo(70,14);
+  g.lineTo(92,40);g.lineTo(112,34);g.lineTo(146,78);g.lineTo(196,140);g.lineTo(230,200);
+  g.lineTo(120,H);g.closePath();g.fill();
+  g.fillStyle='rgba(20,18,30,.35)';                 // ladera en sombra
+  g.beginPath();g.moveTo(70,14);g.lineTo(92,40);g.lineTo(112,34);g.lineTo(146,78);g.lineTo(196,140);
+  g.lineTo(230,200);g.lineTo(120,H);g.lineTo(60,H);g.lineTo(84,120);g.closePath();g.fill();
+  g.fillStyle='#eef4f8';                            // nieve en la cumbre
+  g.beginPath();g.moveTo(46,52);g.lineTo(70,14);g.lineTo(92,40);g.lineTo(112,34);g.lineTo(126,52);
+  g.lineTo(110,50);g.lineTo(98,60);g.lineTo(86,50);g.lineTo(74,62);g.lineTo(60,55);g.closePath();g.fill();
+  g.strokeStyle='rgba(255,255,255,.07)';g.lineWidth=2;   // vetas de la roca
+  for(let i=0;i<9;i++){g.beginPath();g.moveTo(-10+i*4,130+i*68);g.lineTo(40+i*7,112+i*70);g.stroke();}
+  acantilado();
+  // al pie de la mesa: matorral bajo y rocas grises agrietadas (la mesa tapa lo del centro)
+  [[60,690,40,1],[140,722,36,2],[20,750,46,3],[96,664,30,4],[214,758,30,5],
+   [338,722,34,6],[410,744,40,7],[268,758,30,8],[470,716,32,9]].forEach(m=>mata(m[0],m[1],m[2],m[3]));
+  [[36,714,30,19,1,2],[110,744,26,15,2,1],[176,754,22,12,3,1],[14,660,18,24,4,1],
+   [298,746,24,13,5,1],[372,734,30,18,6,2],[466,752,22,14,7,1]].forEach(r=>piedra(r[0],r[1],r[2],r[3],r[4],r[5]));
+  g.restore();
+}
+/* el acantilado de la cascada, a la derecha: una pared de roca por estratos,
+   con repisas iluminadas, fisuras y la roca mojada detrás del salto. Su cima es
+   el propio río: el borde de arriba sigue la orilla lejana y encima ya solo hay
+   cielo (coordenadas de pantalla) */
+const PENA=[[336,48],[352,36],[372,26],[398,20],[426,14],[462,7],[W+20,0],[W+20,H],[446,H],
+            [450,420],[438,240],[404,140],[374,86],[334,62]];
+function acantilado(){
+  const az=v=>{const s=Math.sin(v*12.9898)*43758.5453;return s-Math.floor(s);};
+  const contorno=()=>{g.beginPath();PENA.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();};
+  g.save();
+  contorno();
+  const pena=g.createLinearGradient(330,0,W,260);
+  pena.addColorStop(0,'#6a6876');pena.addColorStop(.5,'#4a4855');pena.addColorStop(1,'#2e2c36');
+  g.fillStyle=pena;g.fill();
+  g.clip();
+  // grandes facetas en sombra: la pared no es plana
+  [[[360,60],[430,40],[470,170],[420,230]],[[420,230],[480,200],[480,420],[452,380]],
+   [[340,40],[372,90],[396,150],[380,70]]].forEach((f,i)=>{
+    g.beginPath();f.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();
+    g.fillStyle=i===2?'rgba(255,255,255,.06)':'rgba(10,10,20,.22)';g.fill();});
+  // estratos de grosor desigual, cada uno con su tono, inclinados y ondulados
+  const capa=(y0,k)=>x=>y0+Math.sin(x/23+k*1.9)*3+Math.sin(x/7+k)*0.8+(x-300)*(0.07+az(k+500)*0.05);
+  let y0=64;
+  for(let k=0;y0<H;k++){
+    const alto=12+az(k+200)*22,f=capa(y0,k),f2=capa(y0+alto,k+1);
+    const linea=(fn,dy)=>{g.beginPath();for(let x=300;x<=490;x+=8){const y=fn(x)+dy;x===300?g.moveTo(x,y):g.lineTo(x,y);}};
+    // tono propio de la capa
+    linea(f,0);for(let x=490;x>=300;x-=8)g.lineTo(x,f2(x));g.closePath();
+    g.fillStyle=az(k+300)<0.5?'rgba(255,250,240,'+(0.03+az(k+310)*0.06)+')':'rgba(10,8,20,'+(0.06+az(k+320)*0.12)+')';g.fill();
+    // sombra que cae bajo la repisa
+    linea(f,0);for(let x=490;x>=300;x-=8)g.lineTo(x,f(x)+7);g.closePath();
+    g.fillStyle='rgba(8,8,16,.32)';g.fill();
+    // canto de la repisa: iluminado solo a tramos, donde sobresale
+    g.strokeStyle='rgba(230,228,238,.28)';g.lineWidth=1.3;
+    for(let x=300;x<490;x+=36){if(az(k*17+x)<0.35)continue;
+      const l=14+az(k*19+x)*26;g.beginPath();
+      for(let xx=x;xx<=x+l;xx+=6){const y=f(xx)-1;xx===x?g.moveTo(xx,y):g.lineTo(xx,y);}g.stroke();}
+    // fisuras verticales de largura desigual, algunas cruzan varias capas
+    for(let j=0;j<3;j++){
+      const x=325+az(k*7+j)*160,y=f(x)+3,l=alto*(0.5+az(k*7+j+3)*1.4),dx=(az(k*3+j)-.5)*5;
+      g.strokeStyle='rgba(225,225,235,.16)';g.lineWidth=0.9;
+      g.beginPath();g.moveTo(x+1,y);g.lineTo(x+1+dx*0.6,y+l*0.55);g.lineTo(x+1+dx,y+l);g.stroke();
+      g.strokeStyle='rgba(10,10,18,.62)';g.lineWidth=1.3;
+      g.beginPath();g.moveTo(x,y);g.lineTo(x+dx*0.6,y+l*0.55);g.lineTo(x+dx,y+l);g.stroke();
+    }
+    // musgo y matas en algunas repisas; de vez en cuando una enredadera que cuelga
+    for(let j=0;j<2;j++){if(az(k*11+j)<0.45)continue;
+      const x=330+az(k*13+j)*140,ancho=8+az(k+j)*12;
+      // mata de musgo: bultitos irregulares pegados a la repisa, oscuros abajo y claros arriba
+      for(let q=0;q<6;q++){const xx=x+(q/5-.5)*ancho+(az(k*9+j*3+q)-.5)*2,yy=f(xx);
+        g.fillStyle=q%2?'rgba(62,118,46,.92)':'rgba(84,146,58,.92)';
+        g.beginPath();g.arc(xx,yy-0.5,1.4+az(k+q+j)*1.6,0,7);g.fill();
+        g.fillStyle='rgba(150,205,104,.7)';g.beginPath();g.arc(xx-0.5,yy-1.6,0.8+az(k*2+q)*0.7,0,7);g.fill();}
+      // de vez en cuando cuelga una enredadera fina con hojitas
+      if(az(k*5+j)>0.72){
+        const vx=x+(az(k+40)-.5)*ancho*0.6,vy=f(vx),largo=alto*(0.6+az(k+41)*0.6);
+        g.strokeStyle='rgba(66,120,46,.75)';g.lineWidth=0.9;g.beginPath();g.moveTo(vx,vy);
+        for(let q=1;q<=4;q++)g.lineTo(vx+Math.sin(q*1.7+k)*1.6,vy+largo*q/4);g.stroke();
+        g.fillStyle='rgba(110,175,72,.8)';
+        for(let q=1;q<=4;q++){g.beginPath();g.ellipse(vx+Math.sin(q*1.7+k)*1.6+(q%2?1.5:-1.5),vy+largo*q/4-2,1.4,0.8,q%2?0.6:-0.6,0,7);g.fill();}
+      }
+    }
+    y0+=alto;
+  }
+  // roca mojada y oscura detrás del salto, con brillos de agua
+  const moja=g.createLinearGradient(326,0,384,0);
+  moja.addColorStop(0,'rgba(8,16,24,0)');moja.addColorStop(.5,'rgba(8,16,24,.5)');moja.addColorStop(1,'rgba(8,16,24,0)');
+  g.fillStyle=moja;g.fillRect(326,50,58,180);
+  g.restore();
+  // borde de la pared: canto iluminado y una franja de musgo
+  g.save();g.lineJoin='round';g.lineCap='round';
+  const borde=()=>{g.beginPath();g.moveTo(334,62);[[374,86],[404,140],[438,240],[450,420],[446,H]].forEach(p=>g.lineTo(p[0],p[1]));};
+  borde();g.strokeStyle='rgba(20,18,26,.6)';g.lineWidth=5;g.stroke();
+  borde();g.strokeStyle='rgba(200,200,212,.35)';g.lineWidth=1.6;g.stroke();
+  borde();g.strokeStyle='rgba(110,175,80,.35)';g.lineWidth=2.4;g.stroke();
+  g.restore();
+}
+/* brillos de agua que resbalan por la roca mojada de detrás del salto */
+function gotasCascada(t){
+  for(let i=0;i<6;i++){const ph=fr(t/90+i/6);
+    g.fillStyle='rgba(190,230,250,'+(0.25*(1-ph))+')';
+    g.beginPath();g.ellipse(332+azarRio(i)*46,64+ph*150,1,3,0,0,7);g.fill();}
+}
+/* roca gris en volumen: base plana apoyada en el suelo, cara de arriba iluminada
+   (luz arriba a la izquierda), costado en sombra, vetas blancas y grietas grises */
+function piedra(x,y,rx,ry,sem,grietas,osc,sinSombra){
+  const azar=v=>{const s=Math.sin(sem*12.9898+v*78.233)*43758.5453;return s-Math.floor(s);};
+  const n=11,pts=[];
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2,r=0.8+0.2*azar(i);
+    pts.push([x+Math.cos(a)*rx*r,y+Math.min(Math.sin(a),0.62)*ry*r]);}
+  const contorno=()=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();};
+  const trazo=(q,dx,dy)=>{g.beginPath();q.forEach((p,i)=>i?g.lineTo(p[0]+dx,p[1]+dy):g.moveTo(p[0]+dx,p[1]+dy));};
+  g.save();g.lineJoin='round';g.lineCap='round';
+  // sombra arrojada sobre el suelo, hacia abajo a la derecha
+  if(!sinSombra){g.fillStyle='rgba(0,0,0,.34)';g.beginPath();g.ellipse(x+rx*0.18,y+ry*0.62,rx*1.08,ry*0.32,0,0,7);g.fill();}
+  // cuerpo: el costado, en sombra
+  const cuerpo=g.createLinearGradient(x,y-ry,x,y+ry*0.7);
+  cuerpo.addColorStop(0,'#8c8c98');cuerpo.addColorStop(.55,'#585862');cuerpo.addColorStop(1,'#2c2c34');
+  contorno();g.fillStyle=cuerpo;g.fill();
+  g.save();contorno();g.clip();
+  // cara de arriba: un casquete iluminado desplazado hacia la luz
+  const luz=g.createRadialGradient(x-rx*0.38,y-ry*0.6,1,x-rx*0.1,y-ry*0.3,rx*1.05);
+  luz.addColorStop(0,'#e2e2ea');luz.addColorStop(.5,'#a8a8b4');luz.addColorStop(1,'rgba(150,150,162,0)');
+  g.fillStyle=luz;g.beginPath();g.ellipse(x-rx*0.12,y-ry*0.36,rx*0.98,ry*0.74,0,0,7);g.fill();
+  // filo entre la cara de arriba y el costado
+  g.strokeStyle='rgba(20,20,28,.35)';g.lineWidth=Math.max(1,rx*0.08);
+  g.beginPath();g.ellipse(x-rx*0.12,y-ry*0.36,rx*0.98,ry*0.74,0,0.15,Math.PI-0.15);g.stroke();
+  // oclusión en la base, donde la roca toca el suelo
+  const base=g.createLinearGradient(0,y+ry*0.05,0,y+ry*0.62);
+  base.addColorStop(0,'rgba(8,8,14,0)');base.addColorStop(1,'rgba(8,8,14,.5)');
+  g.fillStyle=base;g.fillRect(x-rx*1.2,y,rx*2.4,ry);
+  if(osc){g.fillStyle='rgba(12,14,22,'+osc+')';g.fillRect(x-rx*1.2,y-ry*1.2,rx*2.4,ry*2.4);}   // más lejos o en sombra
+  // vetas blancas de cuarzo que cruzan la roca siguiendo su curva
+  const nv=rx<6?0:(grietas||0)+1;
+  for(let k=0;k<nv;k++){
+    const y0=y-ry*(0.62-k*0.3)+azar(60+k)*ry*0.12,x0=x-rx*(0.75-azar(70+k)*0.2),x1=x+rx*(0.65+azar(80+k)*0.2);
+    g.strokeStyle='rgba(242,242,250,'+(0.45+azar(90+k)*0.25)+')';g.lineWidth=Math.max(0.8,rx*0.07);
+    g.beginPath();g.moveTo(x0,y0+ry*0.15);g.quadraticCurveTo(x,y0-ry*0.12,x1,y0+ry*0.25);g.stroke();
+  }
+  // grietas grises en zigzag, con un filo claro al lado que las hunde
+  for(let k=0;k<(grietas||0);k++){
+    const q=[];let cx=x+(azar(20+k)-.5)*rx*0.8,cy=y-ry*0.6+azar(30+k)*ry*0.25;q.push([cx,cy]);
+    for(let j=0;j<3;j++){cx+=(azar(40+k*5+j)-.5)*rx*0.55;cy+=ry*0.34;q.push([cx,cy]);}
+    trazo(q,0.9,0.6);g.strokeStyle='rgba(235,235,245,.45)';g.lineWidth=0.9;g.stroke();
+    trazo(q,0,0);g.strokeStyle='rgba(72,72,82,.9)';g.lineWidth=Math.max(1.2,rx*0.07);g.stroke();
+  }
+  g.restore();
+  contorno();g.strokeStyle='rgba(18,18,24,.8)';g.lineWidth=1.1;g.stroke();
+  // canto superior izquierdo, el que da a la luz
+  g.strokeStyle='rgba(250,250,255,.55)';g.lineWidth=1.3;
+  trazo(pts.slice(6,10),0.8,0.8);g.stroke();
+  g.restore();
+}
+/* mata de matorral bajo: bolas de follaje apiladas, más claras arriba */
+function mata(x,y,w,sem){
+  g.save();
+  g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(x,y+2,w*0.6,w*0.16,0,0,7);g.fill();
+  const cols=['#173520','#24512b','#3a7536','#5a9a48'];
+  for(let c=0;c<4;c++)for(let i=0;i<5;i++){
+    const h=Math.sin(sem*7.7+i*13.1+c*3.3)*43758.5453,r=h-Math.floor(h);
+    g.fillStyle=cols[c];
+    g.beginPath();g.arc(x+(i-2)*w*0.19+(r-.5)*w*0.12,y-c*w*0.07-r*w*0.08,w*(0.17-c*0.028)+r*2,0,7);g.fill();
+  }
+  g.restore();
+}
+function perimetroBosque(){
+  const per=[];
+  for(let a=180;a>=0;a-=6)per.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
+  per.push([464,258],[464,700],[430,700],[312,694],[240,760],[168,694],[86,650],[16,588]);
+  return per.concat(CUEVA_CH.slice().reverse(),[[16,258]]);
+}
+function seta(x,y,k){
+  const s=PS(y)*k,X=PX(x,y),Y=PY(y);
+  g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(X,Y+1,7*s,2.4*s,0,0,7);g.fill();
+  g.fillStyle='#efe6d0';g.fillRect(X-2*s,Y-7*s,4*s,7*s);
+  g.fillStyle='#d9483a';g.beginPath();g.ellipse(X,Y-7*s,8*s,5.5*s,0,Math.PI,0);g.fill();
+  g.fillStyle='#fff';
+  [[-3.5,-9],[2.5,-10],[0,-7.6]].forEach(p=>{g.beginPath();g.arc(X+p[0]*s,Y+p[1]*s,1.1*s,0,7);g.fill();});
+}
+function tableroBosque(t){
+  g.save();
+  pathChain(perimetroBosque());g.closePath();
+  const suelo=g.createLinearGradient(0,PY(0),0,PY(760));
+  suelo.addColorStop(0,'#1d4a2a');suelo.addColorStop(.5,'#285a2e');suelo.addColorStop(1,'#1a3a1e');
+  g.fillStyle=suelo;g.fill();
+  g.clip();
+  // claros de luz que se cuelan entre las copas
+  [[150,140,70],[330,330,90],[200,520,80]].forEach(c=>{
+    const X=PX(c[0],c[1]),Y=PY(c[1]),r=c[2]*PS(c[1]);
+    const l=g.createRadialGradient(X,Y,2,X,Y,r);
+    l.addColorStop(0,'rgba(230,255,170,.09)');l.addColorStop(1,'rgba(230,255,170,0)');
+    g.fillStyle=l;g.beginPath();g.arc(X,Y,r,0,7);g.fill();
+  });
+  // matas de hierba (pseudoaleatorias: siempre en el mismo sitio)
+  g.lineWidth=1.4;g.lineCap='round';
+  for(let i=0;i<140;i++){
+    const a=Math.sin(i*78.233)*43758.5453,b=Math.sin(i*12.9898)*43758.5453;
+    const x=20+(a-Math.floor(a))*440,y=40+(b-Math.floor(b))*700,s=PS(y),X=PX(x,y),Y=PY(y);
+    g.strokeStyle=i%3?'rgba(150,210,110,.16)':'rgba(10,36,12,.32)';
+    g.beginPath();for(let k=-1;k<=1;k++){g.moveTo(X+k*2*s,Y);g.lineTo(X+k*3.6*s,Y-6*s);}g.stroke();
+  }
+  // hojarasca en la parte baja, junto a los flippers
+  const tierra=g.createLinearGradient(0,PY(560),0,PY(760));
+  tierra.addColorStop(0,'rgba(120,84,48,0)');tierra.addColorStop(1,'rgba(120,84,48,.34)');
+  g.fillStyle=tierra;g.fillRect(0,PY(560),W,PY(760)-PY(560));
+  for(let i=0;i<40;i++){
+    const a=Math.sin(i*39.71)*43758.5453,b=Math.sin(i*7.13)*43758.5453;
+    const x=30+(a-Math.floor(a))*420,y=560+(b-Math.floor(b))*180,s=PS(y);
+    g.fillStyle=['rgba(200,120,50,.35)','rgba(170,90,40,.3)','rgba(220,170,70,.3)'][i%3];
+    g.beginPath();g.ellipse(PX(x,y),PY(y),4*s,2*s,i*1.3,0,7);g.fill();
+  }
+  // centro de la mesa: la misma circunferencia partida que en la playa
+  g.globalAlpha=.08;g.strokeStyle='#eaffff';g.lineWidth=6;
+  g.beginPath();g.ellipse(PX(240,430),PY(430),110*PS(430),96*PS(430)*0.9,0,0,7);g.stroke();
+  g.beginPath();g.moveTo(PX(130,430),PY(430));g.lineTo(PX(350,430),PY(430));g.stroke();
+  g.globalAlpha=1;
+  [[44,532,1],[58,546,0.7],[414,540,0.9]].forEach(m=>seta(m[0],m[1],m[2]));
+  g.restore();
+}
+/* boca de la cueva y roca de la falda de la montaña */
+function rocaCueva(){
+  g.save();
+  pathChain(CUEVA_CH);g.closePath();
+  const X=PX(CUEVA.x,CUEVA.y),Y=PY(CUEVA.y);
+  const os=g.createRadialGradient(X-4,Y,2,X,Y,46);
+  os.addColorStop(0,'#000');os.addColorStop(.7,'#0a0c0e');os.addColorStop(1,'#1c2024');
+  g.fillStyle=os;g.fill();
+  g.restore();
+  setoStroke([[[26,214],[18,250],[16,300]],[[16,388],[16,430],[18,470]]],
+    ['#16161c','#26262e','#3e3e48','#55555f','#7a7a86'],0);
+  // arco de piedra que enmarca la boca
+  g.save();g.lineCap='round';g.lineJoin='round';
+  g.strokeStyle='#2e2e36';g.lineWidth=9;pathChain(CUEVA_CH);g.stroke();
+  g.strokeStyle='#6a6a76';g.lineWidth=5;pathChain(CUEVA_CH);g.stroke();
+  g.strokeStyle='rgba(255,255,255,.18)';g.lineWidth=1.6;pathChain(CUEVA_CH);g.stroke();
+  g.restore();
+}
+/* troncos caídos a los lados de la pradera: el mismo volumen que los setos, en madera */
+function dTroncos(){
+  setoStroke(TRONCOS,['#24150a','#3f2814','#5e3c1e','#7d5430','#a8784a'],0);
+  g.save();
+  TRONCOS.forEach(ch=>{
+    // solo se ve el corte del extremo de abajo, el que mira hacia nosotros, apoyado en el suelo
+    {const p=ch[ch.length-1],s=PS(p[1]),X=PX(p[0],p[1]),Y=PY(p[1])+4*s;
+      g.fillStyle='#4a2e18';g.beginPath();g.ellipse(X,Y+1.5*s,10.5*s,10.5*s,0,0,7);g.fill();
+      g.fillStyle='#c9995e';g.beginPath();g.ellipse(X,Y,10*s,10*s,0,0,7);g.fill();
+      g.strokeStyle='#7a5430';g.lineWidth=1.3;
+      [7,3.6].forEach(r=>{g.beginPath();g.ellipse(X,Y,r*s,r*s,0,0,7);g.stroke();});}
+    ch.forEach((p,i)=>{if(i%3!==1)return;               // manchas de musgo
+      const s=PS(p[1]);g.fillStyle='rgba(120,190,80,.75)';
+      g.beginPath();g.ellipse(PX(p[0],p[1]),PY(p[1])-17,6*s,3*s,0,0,7);g.fill();});
+  });
+  g.restore();
+}
+function dCueva(t){
+  const B=G.bosque,v=B.vm,p=B.sp;
+  const X=PX(CUEVA.x,CUEVA.y),Y=PY(CUEVA.y),s=PS(CUEVA.y);
+  const libre=cuevaLibre();
+  g.save();
+  // resplandor dentro de la boca mientras la cueva espera la bola
+  if(libre||B.cueva>0){
+    const col=B.estado<2?'190,150,255':'255,150,170';
+    const pul=0.3+0.22*Math.sin(t/10);
+    const gl=g.createRadialGradient(X,Y,2,X,Y,40*s);
+    gl.addColorStop(0,'rgba('+col+','+pul+')');gl.addColorStop(1,'rgba('+col+',0)');
+    g.fillStyle=gl;g.beginPath();g.ellipse(X,Y,22*s,46*s,0,0,7);g.fill();
+  }
+  // ojos de Venomoth brillando en la oscuridad (parpadean de vez en cuando)
+  if(libre&&B.estado<2&&fr(t/170)>0.05){
+    g.fillStyle='rgba(225,215,255,.9)';
+    g.beginPath();g.ellipse(X-5*s,Y-6*s,2.6*s,3.2*s,0,0,7);g.ellipse(X+4*s,Y-6*s,2.6*s,3.2*s,0,0,7);g.fill();
+    g.fillStyle='#1a1020';
+    g.beginPath();g.arc(X-5*s,Y-5.4*s,1.2*s,0,7);g.arc(X+4*s,Y-5.4*s,1.2*s,0,7);g.fill();
+  }
+  g.restore();
+  // marcador junto a la boca: flor roja, flor azul y la espiral de Spinda
+  [[318,'#ff4a4a',B.estado>=1],[344,'#5aa8ff',B.estado>=2],[370,'#ff8fb0',B.estado>=2||!!p.fase]]
+  .forEach((m,i)=>{
+    const s2=PS(m[0]);
+    g.save();g.translate(PX(40,m[0]),PY(m[0]));g.scale(s2,s2);
+    g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(0,1.5,8,5,0,0,7);g.fill();
+    if(m[2]){g.shadowColor=m[1];g.shadowBlur=10;}
+    const col=m[2]?m[1]:'rgba(200,230,190,.2)';
+    if(i<2){
+      g.fillStyle=col;
+      for(let k=0;k<5;k++){const a=k*1.2566;
+        g.beginPath();g.ellipse(Math.cos(a)*3.4,Math.sin(a)*2.6,2.6,2.1,a,0,7);g.fill();}
+      g.shadowBlur=0;g.fillStyle=m[2]?'#ffe14a':'rgba(200,230,190,.25)';
+      g.beginPath();g.arc(0,0,1.6,0,7);g.fill();
+    } else {
+      g.strokeStyle=col;g.lineWidth=1.8;g.lineCap='round';g.beginPath();
+      for(let k=0;k<=24;k++){const a=k/24*Math.PI*3.4,r=0.4+k*0.24;g.lineTo(Math.cos(a)*r*1.2,Math.sin(a)*r);}
+      g.stroke();
+    }
+    g.restore();
+  });
+}
+function dAgua(t){
+  g.save();g.lineCap='round';g.lineJoin='round';
+  const curso=()=>{g.beginPath();
+    ARROYO.forEach((p,i)=>{const X=PX(p[0],p[1]),Y=PY(p[1]);i?g.lineTo(X,Y):g.moveTo(X,Y);});};
+  curso();g.strokeStyle='rgba(18,36,16,.55)';g.lineWidth=20;g.stroke();
+  curso();g.strokeStyle='#2c6f94';g.lineWidth=14;g.stroke();
+  curso();g.strokeStyle='rgba(120,200,235,.5)';g.lineWidth=7;g.stroke();
+  [POZA,ESTANQUE].forEach((E,i)=>{
+    const s=PS(E.y),X=PX(E.x,E.y),Y=PY(E.y),RX=E.rx*s,RY=E.ry*s;
+    g.fillStyle='rgba(18,36,16,.6)';g.beginPath();g.ellipse(X,Y+2,RX+5,RY+4,0,0,7);g.fill();
+    const ag=g.createRadialGradient(X-RX*.3,Y-RY*.4,2,X,Y,RX);
+    ag.addColorStop(0,'#7fd0ec');ag.addColorStop(.6,'#2f7fa8');ag.addColorStop(1,'#1d5878');
+    g.fillStyle=ag;g.beginPath();g.ellipse(X,Y,RX,RY,0,0,7);g.fill();
+    g.lineWidth=1.3;                                   // ondas: rápidas en la poza, lentas en el estanque
+    for(let k=0;k<3;k++){const ph=fr(t/(i?150:60)+k/3);
+      g.strokeStyle='rgba(225,248,255,'+(0.5*(1-ph))+')';
+      g.beginPath();g.ellipse(X,Y,RX*(0.2+ph*0.75),RY*(0.2+ph*0.75),0,0,7);g.stroke();}
+  });
+  // nenúfares en el estanque
+  const E=ESTANQUE,s=PS(E.y);
+  [[-14,4,0.4],[16,-5,2.2],[4,9,4.1]].forEach(n=>{
+    const X=PX(E.x+n[0],E.y+n[1]),Y=PY(E.y+n[1]);
+    g.fillStyle='#4f9a3c';g.beginPath();g.moveTo(X,Y);g.ellipse(X,Y,6*s,3.6*s,0,n[2],n[2]+5.6);g.closePath();g.fill();
+  });
+  g.fillStyle='#ffb0d0';g.beginPath();g.arc(PX(E.x+16,E.y-5),PY(E.y-5)-1,1.9*s,0,7);g.fill();
+  g.restore();
+}
+/* la cascada: el río llega desde arriba a la derecha entre orillas de roca, se
+   revuelve, gira hacia el borde del acantilado y se despeña; pasa por encima del
+   carril del lanzador y rompe en la poza que hay dentro de la mesa.
+   RIO va en coordenadas de pantalla y su último tramo baja en vertical: ahí el
+   cauce queda de frente y encaja con la boca del salto. */
+const RIO=[[500,20],[462,27],[426,34],[398,40],[374,45],[358,48],[351,53],[350,60]];
+const azarRio=v=>{const s=Math.sin(v*12.9898)*43758.5453;return s-Math.floor(s);};
+/* la geometría del río no cambia: se calcula una sola vez */
+let GEO_RIO=null;
+const ZONA_RIO=[300,0,180,110];   // rectángulo de pantalla que ocupan el río y sus orillas
+function geoRio(){
+  if(GEO_RIO)return GEO_RIO;
+  const xb=PX(POZA.x,POZA.y),yb=PY(POZA.y);
+  // cortes transversales del cauce con su normal: A es la orilla lejana, B la cercana
+  const N=28,S=[];
+  for(let i=0;i<=N;i++){
+    const u=i/N,p=sobreRuta(RIO,u),a=sobreRuta(RIO,Math.max(0,u-0.03)),b=sobreRuta(RIO,Math.min(1,u+0.03));
+    const dir=Math.atan2(b[1]-a[1],b[0]-a[0]);
+    S.push({u,x:p[0],y:p[1],dir,nx:-Math.sin(dir),ny:Math.cos(dir),w:16-u*3});
+  }
+  const corte=u=>S[Math.min(N,Math.round(u*N))];
+  const orilla=(s,lado,e)=>[s.x+s.nx*lado*(s.w+e),s.y+s.ny*lado*(s.w+e)];
+  const banda=(e1,e2)=>{g.beginPath();
+    S.forEach((s,i)=>{const p=orilla(s,1,e1);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]);});
+    for(let i=N;i>=0;i--){const p=orilla(S[i],-1,e2);g.lineTo(p[0],p[1]);}
+    g.closePath();};
+  return GEO_RIO={xb,yb,x0:xb-13,x1:xb+13,y0:RIO[RIO.length-1][1],N,S,corte,orilla,banda};
+}
+/* capas fijas del río (lecho, orillas, piedras): se pintan una vez y luego solo se copian */
+function rioFondo(){
+  const {S,corte,orilla,banda}=geoRio(),azar=azarRio;
+  g.save();g.lineCap='round';g.lineJoin='round';
+  // lecho excavado en la roca: da hondura al cauce
+  banda(5,5);g.fillStyle='#17252b';g.fill();
+  // agua: oscura bajo la orilla lejana, que le hace sombra, y más clara hacia la cercana
+  banda(0,0);
+  const agua=g.createLinearGradient(0,8,0,72);
+  agua.addColorStop(0,'#173f56');agua.addColorStop(.4,'#2f7ea4');agua.addColorStop(1,'#5aa6c8');
+  g.fillStyle=agua;g.fill();
+  g.beginPath();S.forEach((s,i)=>{const p=orilla(s,1,-2);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]);});
+  g.strokeStyle='rgba(8,24,34,.4)';g.lineWidth=5;g.stroke();
+  // orilla lejana: rocas más pequeñas y en sombra, por detrás de todo lo demás
+  for(let k=0;k<12;k++){const s=corte(k/12+0.02),p=orilla(s,1,2+azar(k+300)*3);
+    piedra(p[0],p[1],5+azar(k+310)*5,3.5+azar(k+320)*2.5,80+k,0,0.3);}
+  g.restore();
+}
+function rioDelante(){
+  const {N,S,corte,orilla}=geoRio(),azar=azarRio;
+  g.save();g.lineCap='round';g.lineJoin='round';
+  // piedras en mitad de la corriente: cojín de espuma aguas arriba y estela en V aguas abajo
+  [[0.3,-0.35,6,4.2,31],[0.6,0.4,5,3.5,32]].forEach(r=>{
+    const s=corte(r[0]),lat=r[1]*s.w,x=s.x+s.nx*lat,y=s.y+s.ny*lat;
+    const dx=Math.cos(s.dir),dy=Math.sin(s.dir);
+    g.fillStyle='rgba(240,250,255,.6)';
+    g.beginPath();g.ellipse(x-dx*r[2]*0.7,y-dy*r[2]*0.7,r[2]*1.1,r[3]*1.2,s.dir,0,7);g.fill();
+    g.strokeStyle='rgba(235,248,255,.5)';g.lineWidth=1.2;
+    [-1,1].forEach(l=>{g.beginPath();
+      g.moveTo(x+dx*r[2]+s.nx*l*r[3],y+dy*r[2]+s.ny*l*r[3]);
+      g.quadraticCurveTo(x+dx*(r[2]+8)+s.nx*l*(r[3]+2),y+dy*(r[2]+8)+s.ny*l*(r[3]+2),
+                         x+dx*(r[2]+16)+s.nx*l*(r[3]+6),y+dy*(r[2]+16)+s.ny*l*(r[3]+6));g.stroke();});
+    piedra(x,y,r[2],r[3],r[4],0);
+  });
+  // orilla cercana: el frente de roca del cauce (su grosor) y dos filas de piedras encima
+  g.beginPath();
+  S.forEach((s,i)=>{const p=orilla(s,-1,3);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]);});
+  for(let i=N;i>=0;i--){const p=orilla(S[i],-1,3);g.lineTo(p[0],p[1]+11);}
+  g.closePath();
+  const frente=g.createLinearGradient(0,20,0,90);
+  frente.addColorStop(0,'#4a4a55');frente.addColorStop(1,'#26262e');
+  g.fillStyle=frente;g.fill();
+  for(let k=0;k<8;k++){const s=corte(k/8+0.07),p=orilla(s,-1,12+azar(k+330)*4);
+    piedra(p[0],p[1],9+azar(k+340)*6,6+azar(k+350)*3,100+k,k%2,0.1);}
+  for(let k=0;k<11;k++){const s=corte(k/11+0.02),p=orilla(s,-1,4+azar(k+360)*3);
+    piedra(p[0],p[1],6+azar(k+370)*6,4.5+azar(k+380)*3,120+k,k%4===0?1:0);}
+  g.restore();
+}
+function rioPenas(){
+  const {xb,y0}=geoRio();
+  // dos peñas enmarcan el salto
+  // la de la izquierda va arriba, pegada a la orilla, tapando el filo oscuro del cauce
+  piedra(xb-12,y0-12,9.1,8.4,71,1,0,true);piedra(xb+25,y0+5,13,10,72,1,0.05);
+}
+/* cada frame solo se pinta lo que se mueve: la espuma, la columna y las salpicaduras */
+function dCascada(t){
+  const {xb,yb,x0,x1,y0,corte}=geoRio(),azar=azarRio;
+  copiaCapa('rioFondo',rioFondo,ZONA_RIO[0],ZONA_RIO[1],ZONA_RIO[2],ZONA_RIO[3]);
+  // corriente: estelas de espuma alineadas con el agua, más rápidas y densas hacia el salto
+  for(let i=0;i<70;i++){
+    const u=fr(t*(0.006+0.007*azar(i))+azar(i+50)),s=corte(u);
+    const lat=(azar(i+100)*2-1)*s.w*0.8+Math.sin(t/6+i)*1.4;
+    const largo=3+azar(i+110)*5+u*5,grueso=0.8+azar(i+120)*1.1;
+    const al=(0.2+0.45*azar(i+130))*Math.min(1,u*6)*(0.6+0.4*Math.sin(t/4+i));
+    g.fillStyle='rgba(238,250,255,'+al+')';
+    g.beginPath();g.ellipse(s.x+s.nx*lat,s.y+s.ny*lat,largo,grueso,s.dir,0,7);g.fill();
+  }
+  // agua blanca en el último tramo: el río se acelera y se rompe antes de caer
+  for(let k=0;k<16;k++){
+    const u=0.8+azar(k+140)*0.2,s=corte(u),lat=(azar(k+150)*2-1)*s.w*0.85;
+    g.fillStyle='rgba(245,252,255,'+(0.35+0.3*Math.sin(t/3+k*1.7))+')';
+    g.beginPath();g.arc(s.x+s.nx*lat+Math.sin(t/5+k)*1.2,s.y+s.ny*lat,1.8+azar(k+160)*2.4,0,7);g.fill();
+  }
+  copiaCapa('rioDelante',rioDelante,ZONA_RIO[0],ZONA_RIO[1],ZONA_RIO[2],ZONA_RIO[3]);
+  // caída: columna con hilos ondulantes continuos y trozos de espuma que se desploman
+  g.save();g.lineCap='round';g.lineJoin='round';
+  const gr=g.createLinearGradient(x0,0,x1,0);
+  gr.addColorStop(0,'rgba(150,205,230,.85)');gr.addColorStop(.45,'rgba(236,250,255,.95)');gr.addColorStop(1,'rgba(140,195,225,.85)');
+  g.fillStyle=gr;
+  g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y0);g.lineTo(x1+2,yb);g.lineTo(x0-2,yb);g.closePath();g.fill();
+  for(let i=0;i<5;i++){
+    g.strokeStyle=i%2?'rgba(255,255,255,.45)':'rgba(110,170,205,.4)';g.lineWidth=1.4;
+    g.beginPath();
+    for(let y=y0;y<=yb;y+=6){const x=x0+4+i*(x1-x0-8)/4+Math.sin(y/13+t/5+i*1.3)*1.3+(y-y0)/(yb-y0)*(i-2)*0.8;
+      y===y0?g.moveTo(x,y):g.lineTo(x,y);}
+    g.stroke();
+  }
+  for(let i=0;i<12;i++){
+    const ph=fr(t/38+azar(i+400)),y=y0+ph*ph*(yb-y0),x=x0+3+azar(i+410)*(x1-x0-6);
+    g.fillStyle='rgba(255,255,255,'+(0.65*(1-ph*0.5))+')';
+    g.beginPath();g.ellipse(x,y,1.6,3+ph*4,0,0,7);g.fill();
+  }
+  // labio: el agua se curva sobre el borde, con brillo arriba y sombra justo debajo
+  g.fillStyle='rgba(80,140,180,.35)';g.beginPath();g.ellipse(xb,y0+6,13,3,0,0,7);g.fill();
+  const labio=g.createLinearGradient(0,y0-4,0,y0+4);
+  labio.addColorStop(0,'rgba(170,220,240,.9)');labio.addColorStop(.5,'rgba(250,254,255,1)');labio.addColorStop(1,'rgba(170,215,235,.8)');
+  g.fillStyle=labio;g.beginPath();g.ellipse(xb,y0,13.5,3.6,0,0,7);g.fill();
+  g.restore();
+  copiaCapa('rioPenas',rioPenas,ZONA_RIO[0],ZONA_RIO[1],ZONA_RIO[2],ZONA_RIO[3]);
+  for(let k=0;k<9;k++){const ph=fr(t/45+k/9);          // espuma y salpicaduras al pie
+    g.fillStyle='rgba(240,252,255,'+(0.55*(1-ph))+')';
+    g.beginPath();g.arc(xb+(k-4)*3.6+Math.sin(k*2.3+t/20)*2,yb-2-ph*16,2.4+ph*5,0,7);g.fill();}
+}
+function dPradera(t){
+  const B=G.bosque,P=PRADERA,s=PS(P.y),X=PX(P.x,P.y),Y=PY(P.y),RX=P.rx*s,RY=P.ry*s*0.92;
+  // el contorno no es un óvalo perfecto, como la ciénaga de la playa
+  const borde=(esc,off)=>{g.beginPath();
+    for(let a=0;a<=64;a++){const an=a/64*Math.PI*2;
+      const rz=Math.sin(a*2.3)*0.04+Math.sin(a*0.7+1.3)*0.05;
+      g.lineTo(X+Math.cos(an)*RX*(esc+rz),Y+off+Math.sin(an)*RY*(esc+rz));}
+    g.closePath();};
+  g.save();
+  borde(1.07,4);g.fillStyle='rgba(0,0,0,.28)';g.fill();
+  borde(1.05,0);g.fillStyle='#4a3a1e';g.fill();
+  borde(0.98,0);
+  const pasto=g.createRadialGradient(X-RX*.25,Y-RY*.3,4,X,Y,RX);
+  pasto.addColorStop(0,'#a9e07c');pasto.addColorStop(.6,'#77bd50');pasto.addColorStop(1,'#4c8a36');
+  g.fillStyle=pasto;g.fill();
+  if(B.nivel>0&&!B.marchita){g.fillStyle=B.nivel===2?'rgba(130,160,255,.10)':'rgba(255,110,110,.09)';g.fill();}
+  g.save();borde(0.98,0);g.clip();
+  // briznas que se mecen con la brisa
+  g.lineWidth=1.3;g.lineCap='round';
+  for(let i=0;i<64;i++){
+    const a=Math.sin(i*91.7)*43758.5453,b=Math.sin(i*37.1)*43758.5453;
+    const an=(a-Math.floor(a))*7,rr=Math.sqrt(b-Math.floor(b))*0.95;
+    const bx=X+Math.cos(an)*RX*rr,by=Y+Math.sin(an)*RY*rr,m=Math.sin(t/30+i)*1.6;
+    g.strokeStyle=i%2?'rgba(40,100,30,.55)':'rgba(205,245,160,.5)';
+    g.beginPath();g.moveTo(bx-2,by);g.quadraticCurveTo(bx-2,by-4,bx-2+m,by-7);
+    g.moveTo(bx+2,by);g.quadraticCurveTo(bx+2,by-3,bx+2+m,by-6);g.stroke();
+  }
+  g.restore();
+  g.strokeStyle='rgba(30,50,16,.45)';g.lineWidth=2;borde(0.98,0);g.stroke();
+  g.restore();
+}
+function dFlores(t){
+  const B=G.bosque;if(!B.flores.length)return;
+  g.save();
+  if(B.marchita>0)g.globalAlpha=B.marchita/40;
+  for(const f of B.flores){
+    if(!f.nace)continue;
+    // brota con un pequeño rebote (easeOutBack) y luego se mece
+    const k=Math.min(1,f.nace/18),q=k-1;
+    const esc=Math.max(0.02,k<1?1+2.7*q*q*q+1.7*q*q:1)*f.tam;
+    const s=PS(f.y)*esc,X=PX(f.x,f.y),Y=PY(f.y),mece=Math.sin(t/36+f.fase)*1.5*s;
+    const col=f.color==='roja'?['#ff5a4a','#d42a3a']:['#6ab0ff','#3a6fe0'];
+    g.strokeStyle='#3a7a30';g.lineWidth=Math.max(1,1.5*s);
+    g.beginPath();g.moveTo(X,Y);g.quadraticCurveTo(X,Y-4*s,X+mece,Y-8*s);g.stroke();
+    const cx=X+mece,cy=Y-9*s;
+    for(let p=0;p<5;p++){const a=p*1.2566+f.fase;
+      g.fillStyle=col[p%2];
+      g.beginPath();g.ellipse(cx+Math.cos(a)*3.1*s,cy+Math.sin(a)*2.5*s,2.6*s,2*s,a,0,7);g.fill();}
+    g.fillStyle='#ffe14a';g.beginPath();g.arc(cx,cy,1.5*s,0,7);g.fill();
+  }
+  g.restore();
+}
+/* dibujos de repuesto mientras no carguen los gifs */
+function bounsweetPropio(X,Y,s){
+  g.save();g.translate(X,Y);g.scale(s,s);
+  g.fillStyle='#d94a8c';g.beginPath();g.ellipse(0,2,17,14,0,0,7);g.fill();
+  g.fillStyle='#f2ecd8';g.beginPath();g.ellipse(0,11,13,5,0,0,7);g.fill();
+  g.fillStyle='#8fd36a';
+  [-0.9,0,0.9].forEach(a=>{g.save();g.translate(0,-11);g.rotate(a);
+    g.beginPath();g.ellipse(0,-6,4,8,0,0,7);g.fill();g.restore();});
+  ojo(g,-5,2,1.8);ojo(g,5,2,1.8);
+  g.restore();
+}
+function venomothPropio(X,Y,s,t){
+  g.save();g.translate(X,Y);g.scale(s,s);
+  const al=Math.sin(t/3)*0.4;
+  g.fillStyle='rgba(228,214,248,.92)';
+  g.save();g.rotate(-al);g.beginPath();g.ellipse(-20,-6,20,12,-0.4,0,7);g.fill();g.restore();
+  g.save();g.rotate(al);g.beginPath();g.ellipse(20,-6,20,12,0.4,0,7);g.fill();g.restore();
+  g.fillStyle='#d8d0e0';g.beginPath();g.ellipse(0,6,7,11,0,0,7);g.fill();
+  g.fillStyle='#9b84c4';g.beginPath();g.ellipse(0,-8,8,7,0,0,7);g.fill();
+  g.strokeStyle='#9b84c4';g.lineWidth=1.6;
+  g.beginPath();g.moveTo(-2,-14);g.lineTo(-6,-24);g.moveTo(2,-14);g.lineTo(6,-24);g.stroke();
+  g.fillStyle='#fff';g.beginPath();g.arc(-4,-8,3,0,7);g.arc(4,-8,3,0,7);g.fill();
+  g.fillStyle='#1a1418';g.beginPath();g.arc(-4,-8,1.4,0,7);g.arc(4,-8,1.4,0,7);g.fill();
+  g.restore();
+}
+function spindaPropio(X,Y,s,t){
+  g.save();g.translate(X,Y);g.scale(s,s);g.rotate(Math.sin(t/14)*0.12);
+  g.fillStyle='#f2e6d0';
+  g.beginPath();g.ellipse(-8,-24,5,9,-0.4,0,7);g.ellipse(8,-24,5,9,0.4,0,7);g.fill();
+  g.beginPath();g.ellipse(0,6,11,12,0,0,7);g.fill();
+  g.beginPath();g.ellipse(0,-10,12,10,0,0,7);g.fill();
+  g.fillStyle='#e0605a';
+  g.beginPath();g.arc(-6,-14,4,0,7);g.arc(7,-8,3.5,0,7);g.arc(-3,8,4,0,7);g.fill();
+  g.strokeStyle='#3a2a28';g.lineWidth=1.3;
+  [[-4.5,-9],[4.5,-9]].forEach(p=>{g.beginPath();
+    for(let k=0;k<=14;k++){const a=k/14*Math.PI*3,r=0.3+k*0.17;g.lineTo(p[0]+Math.cos(a)*r,p[1]+Math.sin(a)*r);}
+    g.stroke();});
+  g.restore();
+}
+function machampPropio(X,Y,s,t,golpe){
+  g.save();g.translate(X,Y);g.scale(s,s);g.lineCap='round';
+  const piel='#8f9aa8',osc='#5f6876',alza=golpe?-12:0;
+  g.fillStyle=osc;g.beginPath();g.ellipse(-8,14,6,9,0.2,0,7);g.ellipse(8,14,6,9,-0.2,0,7);g.fill();
+  g.fillStyle=piel;g.beginPath();g.ellipse(0,-4,15,16,0,0,7);g.fill();
+  g.fillStyle='#2a2a30';g.fillRect(-12,6,24,5);g.fillStyle='#f2c530';g.fillRect(-3,6,6,5);
+  // cuatro brazos: los de arriba suben del todo en el gancho
+  g.strokeStyle=piel;g.lineWidth=6;
+  g.beginPath();g.moveTo(-12,-12);g.lineTo(-18,-24+alza);g.moveTo(12,-12);g.lineTo(18,-24+alza);
+  g.moveTo(-13,-2);g.lineTo(-22,4);g.moveTo(13,-2);g.lineTo(22,4);g.stroke();
+  g.fillStyle=piel;
+  [[-18,-26+alza],[18,-26+alza],[-23,5],[23,5]].forEach(p=>{g.beginPath();g.arc(p[0],p[1],4.5,0,7);g.fill();});
+  g.beginPath();g.ellipse(0,-22,8,7,0,0,7);g.fill();
+  g.fillStyle=osc;g.beginPath();g.moveTo(-5,-27);g.lineTo(0,-36);g.lineTo(5,-27);g.closePath();g.fill();
+  ojo(g,-3,-23,1.6,'#c0303a');ojo(g,3,-23,1.6,'#c0303a');
+  g.restore();
+}
+function dBounsweet(b,t){
+  const s=PS(b.y),X=PX(b.x,b.y),pie=PY(b.y)+21*s;
+  // al recibir la bola se aplasta y rebota
+  const sq=b.lit>0?1+Math.sin(b.lit/14*Math.PI)*0.2:1;
+  g.save();g.translate(X,pie);g.scale(sq,1/sq);g.translate(-X,-pie);
+  if(!actorGif('bounsweet-decoracion',b.x,b.y,21)&&!actorImg('bounsweet-decoracion',b.x,b.y,21)){
+    g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(X,pie,17*s,4.5*s,0,0,7);g.fill();
+    bounsweetPropio(X,pie-16*s,s);
+  }
+  g.restore();
+}
+function dSpinda(t){
+  const p=G.bosque.sp;if(!p.fase)return;
+  const a=p.fase==='sale'?Math.min(1,p.t/20):p.fase==='vuelve'?clamp((100-p.t)/20,0,1):1;
+  if(a<=0)return;
+  const s=PS(p.y),X=PX(p.x,p.y),Y=PY(p.y);
+  g.save();g.globalAlpha=a;
+  g.fillStyle='rgba(0,0,0,.28)';g.beginPath();g.ellipse(X,Y+SP_ALTO*1.5*s,15*s,4*s,0,0,7);g.fill();
+  g.restore();
+  if(!gifCentrado('spinda-decoracion',p.x,p.y,SP_ALTO,a,p.z)){
+    g.save();g.globalAlpha=a;spindaPropio(X,Y-p.z*s,s*1.3,t);g.restore();}
+  if(p.fase==='vuelve'){                     // estrellitas de mareo
+    g.save();g.globalAlpha=a;g.fillStyle='#ffe14a';
+    for(let k=0;k<3;k++){const an=t/8+k*2.1;
+      g.beginPath();g.arc(X+Math.cos(an)*14*s,Y-p.z*s-SP_ALTO*1.4*s+Math.sin(an)*4*s,2.2*s,0,7);g.fill();}
+    g.restore();
+  }
+}
+function dVenomoth(t){
+  const v=G.bosque.vm;if(!v.fase)return;
+  const a=v.fase==='sale'?Math.min(1,v.t/18):v.fase==='vuelve'?clamp((60-v.t)/15,0,1):1;
+  if(a<=0)return;
+  const s=PS(v.y),X=PX(v.x,v.y),Y=PY(v.y),Yv=Y-v.z*s;
+  g.save();g.globalAlpha=a;
+  // sombra en el suelo: más pequeña y tenue cuanto más alto vuela
+  const sh=1/(1+v.z/30);
+  g.fillStyle='rgba(0,0,0,'+(0.3*sh)+')';
+  g.beginPath();g.ellipse(X,Y+18*s,30*s*sh,7*s*sh,0,0,7);g.fill();
+  if(v.fase==='poliniza'){                   // nube de polen que lo envuelve
+    const gl=g.createRadialGradient(X,Yv,4,X,Yv,46*s);
+    gl.addColorStop(0,'rgba(255,190,90,.32)');gl.addColorStop(1,'rgba(255,150,50,0)');
+    g.fillStyle=gl;g.beginPath();g.arc(X,Yv,46*s,0,7);g.fill();
+  }
+  if(v.flash>0){g.globalAlpha=a*v.flash/14*0.6;g.fillStyle='#fff';
+    g.beginPath();g.arc(X,Yv,34*s,0,7);g.fill();}
+  g.restore();
+  if(!gifCentrado('venomoth-decoracion',v.x,v.y,VM_ALTO,a,v.z)){
+    g.save();g.globalAlpha=a;venomothPropio(X,Yv,s,t);g.restore();}
+}
+function dPolen(t){
+  const P=G.bosque.polen;if(!P.length)return;
+  g.save();
+  for(const p of P){
+    const q=posPolen(p),s=PS(q.y),X=PX(q.x,q.y),Y=PY(q.y)-q.z*s;
+    const a=p.flor?1:1-p.t/p.dur;
+    g.globalAlpha=0.35*a;g.fillStyle='#ffb347';g.beginPath();g.arc(X,Y,4.6*s,0,7);g.fill();
+    g.globalAlpha=0.95*a;g.fillStyle=(p.t>>2)%2?'#ffd27a':'#ff9a2e';
+    g.beginPath();g.arc(X,Y,1.9*s,0,7);g.fill();
+  }
+  g.restore();
+}
+function dMachamp(t){
+  const B=G.bosque,M=MACHAMP,s=PS(M.y),X=PX(M.x,M.y),Y=PY(M.y);
+  // roca agrietada sobre la que planta los pies
+  piedra(X,Y+29*s,31*s,13*s,11,2);
+  // mientras carga el gancho tiembla de la tensión
+  const tiembla=G.charging&&ball.state==='ready'?Math.sin(t*1.9)*G.charge*1.6:0;
+  g.save();g.translate(tiembla,0);
+  if(!actorGif('machamp-decoracion',M.x,M.y,22)&&!actorImg('machamp-decoracion',M.x,M.y,22))
+    machampPropio(X,Y-4*s,s,t,B.gancho>0);
+  g.restore();
+}
+function dibujaBosque(t){
+  fondoBosque(t);
+  g.drawImage(capaMesa(),0,0);
+  dAgua(t);dCascada(t);
+  dCueva(t);
+  dPradera(t);dFlores(t);
+  BOUNSWEETS.forEach(b=>dBounsweet(b,t));
+  dSpinda(t);dVenomoth(t);dPolen(t);
+  if(G.capAnim)drawCaptura(t);
+  else if(G.mode==='captura')drawWild(t);
+}
+
+/* ============================================================
    RENDER
    ============================================================ */
 function roundRectPath(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
@@ -2900,17 +3945,23 @@ function tablero(t){
 }
 function paredes(){paredesDe(CHAINS,SLINGS,ch=>ARBUSTOS_CH.includes(ch)||
   ch===CARRIL.ext||ch===CARRIL.int||ch===CARRIL.tapa);}
-function paredesDe(CHAINS,SLINGS,fuera){
+/* colores de muros y tirachinas: el neón turquesa de la playa o el musgo del bosque */
+const PAL_ALOLA={brillo:'rgba(56,224,198,.55)',muro:'#79ead9',canto:'rgba(255,255,255,.35)',
+  lado:'rgba(4,26,32,.55)',sling:'#ffd27a'};
+const PAL_BOSQUE={brillo:'rgba(150,220,100,.5)',muro:'#a8dc84',canto:'rgba(255,255,230,.4)',
+  lado:'rgba(12,30,10,.6)',sling:'#ff9ec4'};
+function paredesDe(CHAINS,SLINGS,fuera,pal){
+  pal=pal||PAL_ALOLA;
   g.lineCap='round';g.lineJoin='round';
   const esArbusto=ch=>fuera?fuera(ch):false;
-  g.shadowColor='rgba(56,224,198,.55)';g.shadowBlur=14;
-  g.strokeStyle='#79ead9';g.lineWidth=12;
+  g.shadowColor=pal.brillo;g.shadowBlur=14;
+  g.strokeStyle=pal.muro;g.lineWidth=12;
   CHAINS.forEach(ch=>{if(esArbusto(ch))return;pathChain(ch);g.stroke();});
   g.shadowBlur=0;
-  g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=3;
+  g.strokeStyle=pal.canto;g.lineWidth=3;
   CHAINS.forEach(ch=>{if(esArbusto(ch))return;pathChain(ch);g.stroke();});
   // altura ficticia: réplica desplazada hacia abajo, más oscura (lado del muro)
-  g.strokeStyle='rgba(4,26,32,.55)';g.lineWidth=12;
+  g.strokeStyle=pal.lado;g.lineWidth=12;
   CHAINS.forEach(ch=>{if(esArbusto(ch))return;g.beginPath();
     ch.forEach((p,i)=>{const X=PX(p[0],p[1]),Y=PY(p[1])+5;i?g.lineTo(X,Y):g.moveTo(X,Y);});
     g.stroke();});
@@ -2921,7 +3972,7 @@ function paredesDe(CHAINS,SLINGS,fuera){
     const ax=PX(s.a[0],s.a[1]),ay=PY(s.a[1]),bx=PX(s.b[0],s.b[1]),by=PY(s.b[1]);
     g.strokeStyle='rgba(0,0,0,.4)';g.lineWidth=18;
     g.beginPath();g.moveTo(ax,ay+3);g.lineTo(bx,by+3);g.stroke();
-    g.strokeStyle='#ffd27a';g.lineWidth=15;
+    g.strokeStyle=pal.sling;g.lineWidth=15;
     g.beginPath();g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();
     g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=4;
     g.beginPath();g.moveTo(ax,ay-3);g.lineTo(bx,by-3);g.stroke();
@@ -3007,6 +4058,7 @@ function drawTable(){
   if(shake>0.4)g.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   if(G.escena==='mew')dibujaMew(t);
   else if(G.escena==='pista')dibujaPista(t);
+  else if(G.escena==='bosque')dibujaBosque(t);
   else dibujaAlola(t);
   dFlippers();
   dComun(t);
@@ -3017,6 +4069,25 @@ function drawTable(){
    trazos por cada tramo de seto. Se dibuja una sola vez en un lienzo aparte y
    a partir de ahí solo se copia. */
 const CAPA={};
+/* lo mismo para cualquier otra pieza fija: fn se pinta una sola vez en un lienzo
+   del tamaño de la mesa y a partir de ahí se copia */
+function capaFija(k,fn){
+  if(CAPA[k])return CAPA[k];
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const prev=g;g=c.getContext('2d');fn();g=prev;
+  return CAPA[k]=c;
+}
+/* igual, pero solo con el rectángulo (x,y,w,h) que ocupa la pieza: copiar un
+   lienzo pequeño en cada frame es mucho más barato que uno del tamaño de la mesa */
+function copiaCapa(k,fn,x,y,w,h){
+  let c=CAPA[k];
+  if(!c){
+    c=document.createElement('canvas');c.width=w;c.height=h;
+    const prev=g;g=c.getContext('2d');g.translate(-x,-y);fn();g=prev;
+    CAPA[k]=c;
+  }
+  g.drawImage(c,x,y);
+}
 function capaMesa(){
   const k=G.escena;
   if(CAPA[k])return CAPA[k];              // una vez por mesa, no por cambio de escena
@@ -3024,6 +4095,7 @@ function capaMesa(){
   const prev=g;g=c.getContext('2d');
   if(k==='mew'){tableroMew(0);paredesDe(MEW_CH,MEW_SLINGS);}
   else if(k==='pista'){tableroPista(0);paredesDe(PISTA_CH,PISTA_SLINGS);}
+  else if(k==='bosque'){tableroBosque(0);paredesDe(BOSQUE_PINTA,SLINGS,null,PAL_BOSQUE);rocaCueva();dTroncos();}
   else{tablero(0);dCarril(0);dCarrilSnorlax(0);paredes();drawArbustos(0);}
   g=prev;
   return CAPA[k]=c;
@@ -3107,7 +4179,10 @@ function dFlippers(){
 }
 function dComun(t){
   if(G.escena==='alola'){dChandelure(t);dEmolga(t);}
-  // bola
+  else if(G.escena==='bosque')dMachamp(t);
+  // bola (dentro de la cueva de Venomoth no se ve)
+  const oculta=G.escena==='bosque'&&G.bosque.cueva>0;
+  if(!oculta){
   if(ball.state!=='held'){
     ball.trail.forEach((p,i)=>{
       g.globalAlpha=i/ball.trail.length*0.35;
@@ -3150,6 +4225,7 @@ function dComun(t){
   g.restore();
   g.fillStyle='rgba(255,255,255,.55)';
   g.beginPath();g.ellipse(X-r*0.38,Y-r*0.42,r*0.3,r*0.18,-0.6,0,7);g.fill();
+  }
   // partículas y textos
   fx.forEach(p=>{g.globalAlpha=p.life;g.fillStyle=p.color;
     g.beginPath();g.arc(PX(p.x,p.y),PY(p.y),p.size*PS(p.y),0,7);g.fill();});
@@ -3162,7 +4238,7 @@ function dComun(t){
   g.globalAlpha=1;
   if(G.escena==='mew')hudMew(t);
   if(G.escena==='pista')hudPista(t);
-  if(G.escena==='alola'&&G.saver>0&&ball.state==='play'){
+  if((G.escena==='alola'||G.escena==='bosque')&&G.saver>0&&ball.state==='play'){
     g.strokeStyle='rgba(120,255,220,'+(0.35+Math.sin(t/6)*0.2)+')';g.lineWidth=5;
     g.beginPath();g.moveTo(PX(180,745),PY(745));g.lineTo(PX(300,745),PY(745));g.stroke();
   }
@@ -3194,7 +4270,7 @@ function updateHUD(){
     w=(G.timer/G.timerMax*100)+'%';
     m=(G.msgT>0?G.msg:'MODO CAPTURA · '+Math.ceil(G.timer/60)+'s');
   }else{
-    m=G.msgT>0?G.msg:(G.state==='play'?'Golpea a Bunneary para buscar pokémon':'Pulsa Jugar para empezar');
+    m=G.msgT>0?G.msg:(G.state==='play'?(G.escena==='bosque'?guiaBosque():'Golpea a Bunneary para buscar pokémon'):'Pulsa Jugar para empezar');
   }
   if(HUD_ANT.bar!==w){HUD_ANT.bar=w;bar.style.width=w;}
   if(HUD_ANT.txt!==m){HUD_ANT.txt=m;txt.textContent=m;}
@@ -3203,7 +4279,7 @@ function fillDex(grid){
   grid.innerHTML='';
   if(!G.order.length){
     const p=document.createElement('p');p.className='empty';
-    p.textContent='Todavía no has registrado ninguna especie. Golpea a Bunneary para llamar a un pokémon salvaje.';
+    p.textContent='Todavía no has registrado ninguna especie. Golpea a Bunneary (playa) o a Spinda (bosque) para llamar a un pokémon salvaje.';
     grid.appendChild(p);return;
   }
   G.order.forEach(k=>{
@@ -3228,11 +4304,16 @@ function closeDex(){$('dex').classList.add('hidden');G.paused=false;}
    ============================================================ */
 function launch(){
   if(ball.state!=='ready')return;
-  ball.state='play';
-  ball.vy=-(18.5+G.charge*7.5)*SPD;ball.vx=(Math.random()-.5)*0.6;
-  score(Math.round(400+G.charge*600),447,630);
+  // en el bosque la bola sale cuando el gancho de Machamp llega arriba, no al soltar
+  if(G.escena==='bosque'){ganchoMachamp();return;}
+  disparaBola(G.charge);
   G.chanFuego=26;
-  beep(320+G.charge*300,.14,'square',.05);
+}
+function disparaBola(carga){
+  ball.state='play';
+  ball.vy=-(18.5+carga*7.5)*SPD;ball.vx=(Math.random()-.5)*0.6;
+  score(Math.round(400+carga*600),447,630);
+  beep(320+carga*300,.14,'square',.05);
   G.charge=0;G.charging=false;
 }
 addEventListener('keydown',e=>{
@@ -3276,11 +4357,13 @@ function release(e){
 stage.addEventListener('pointerup',release);
 stage.addEventListener('pointercancel',release);
 $('jugar').onclick=()=>startGame();
+$('jugarBosque').onclick=()=>startGame('bosque');
 $('practica').onclick=()=>startGame('mew');
 $('practicaPista').onclick=()=>startGame('pista');
 $('verInfo').onclick=()=>{$('menu').classList.add('hidden');$('info').classList.remove('hidden');};
 $('cerrarInfo').onclick=()=>{$('info').classList.add('hidden');$('menu').classList.remove('hidden');};
-$('again').onclick=()=>startGame();
+// otra partida en la misma mesa
+$('again').onclick=()=>startGame(G.mesa==='bosque'?'bosque':undefined);
 $('toMenu').onclick=()=>{$('over').classList.add('hidden');$('info').classList.add('hidden');
   $('menu').classList.remove('hidden');G.state='menu';};
 $('dexClose').onclick=closeDex;

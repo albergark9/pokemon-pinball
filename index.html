@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Pinball Alola · Mesa del atardecer</title>
+<title>Pinball Alola</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -26,8 +26,9 @@
     <canvas id="c" width="480" height="760"></canvas>
 
     <div id="menu" class="overlay">
-      <h1>Pinball <em>Alola</em> · Mesa del atardecer</h1>
-      <div class="row"><button id="jugar">Jugar</button></div>
+      <h1>Pinball <em>Alola</em></h1>
+      <p class="sub">Elige mesa: la playa al atardecer o el bosque de la cascada.</p>
+      <div class="row"><button id="jugar">Jugar · Playa</button><button id="jugarBosque" class="bosque">Jugar · Bosque</button></div>
       <div class="row"><button class="btnmini" id="practica" style="width:auto;padding:10px 18px">Practicar el nivel de Mew</button></div>
       <div class="row"><button class="btnmini" id="practicaPista" style="width:auto;padding:10px 18px">Practicar la pista de atletismo</button></div>
       <div class="row"><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
@@ -35,7 +36,8 @@
 
     <div id="info" class="overlay hidden">
       <h1>Cómo se juega</h1>
-      <p class="sub">Una única mesa en falso 3D basada en tu boceto. Seis habitantes, cada uno con su mecánica:</p>
+      <p class="sub">Dos mesas en falso 3D, cada una con sus habitantes y sus mecánicas.</p>
+      <p class="sub"><b>Playa al atardecer</b></p>
       <ul class="mecs">
         <li><b>Fennekin</b> (borde izquierdo): golpea su botón rojo y luego pulsa <kbd>←</kbd> con la bola cerca — salta un puñado de chispas y su llamarada la dispara en horizontal, cruzando la mesa de lado a lado. Volver a golpear el botón lo apaga.</li>
         <li><b>Bunneary</b> (entre el seto, a la izquierda de los Koffing): salta sin parar; cualquier toque inicia una captura. Una <b>valla de madera</b> tapa la boca de su carril y hay que derribarla antes para llegar hasta él.</li>
@@ -50,9 +52,16 @@
         <li><b>Bonus · Pista de atletismo</b>: cinco carriles horizontales por los que cruzan corredores, uno nuevo cada 5 s en un carril al azar. Scorbunny corre de derecha a izquierda a velocidad media y Pikachu de izquierda a derecha más rápido. Tienes 60 s para derribar a <b>8 corredores</b>: al octavo la carrera termina con 500.000 puntos; si se agota el tiempo, bonus fallido.</li>
         <li><b>Bonus · Laboratorio secreto</b>: la mesa de Mew: 10 golpes para reventar su tanque y 10 más para tumbarlo mientras vuela, con 90 s en total y su ataque psíquico congelando 3 s la bola que esté a menos de 200 px de él. Solo se cobra el 1.000.000 completando los 10 golpes; si se agota el tiempo, bonus fallido. Al volver hay que capturar otros 3 pokémon para que reaparezca el acceso… y si logras tumbar a Mew una segunda vez, no huirá: lo capturarás por 5.000.000 y ya no habrá más viajes al laboratorio.</li>
       </ul>
+      <p class="sub"><b>Bosque de la cascada</b></p>
+      <ul class="mecs">
+        <li><b>Machamp</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su gancho hacia arriba saca la bola disparada.</li>
+        <li><b>Tres Bounsweet</b> (centro): rebotes muy potentes sobre una pradera. Con flores rojas puntúan el doble y con rojas y azules, el triple.</li>
+        <li><b>Cueva de Venomoth</b> (izquierda, al pie de la montaña): cuela la bola y sale Venomoth revoloteando. Golpéalo una vez: vuela sobre los Bounsweet, suelta polen naranja y en la pradera brotan <b>flores rojas</b>. La segunda vez brotan <b>azules</b> junto a las rojas. Mientras Venomoth está fuera, la cueva no hace nada; si pierdes la bola antes de golpearlo, vuelve a esconderse sin soltar polen.</li>
+        <li><b>Spinda</b>: la tercera vez que cuelas la bola en la cueva, Spinda sale de detrás y pasea de lado a lado por encima de la pradera. Golpéalo para abrir el modo captura, con los mismos pokémon que en la playa. Al terminar la captura, salga bien o mal, las flores se marchitan y Venomoth vuelve a empezar.</li>
+      </ul>
       <div class="keys">
         <span><kbd>←</kbd> <kbd>→</kbd></span><span>Flippers · y las acciones de Fennekin y Starmie</span>
-        <span><kbd>Espacio</kbd></span><span>Cargar y soltar el lanzador</span>
+        <span><kbd>Espacio</kbd></span><span>Cargar y soltar el lanzador (Chandelure o Machamp)</span>
         <span><kbd>Tab</kbd></span><span>Pokédex · <kbd>P</kbd> pausa · <kbd>M</kbd> sonido</span>
       </div>
       <p class="sub">Los sprites se cargan solos desde <code>assets/sprites/</code>. Para sustituir cualquiera, arrastra un GIF sobre el juego: el nombre del archivo decide la clave (<code>bunneary.gif</code> &rarr; <code>bunneary</code>) y tiene prioridad sobre el de la carpeta.</p>
