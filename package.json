@@ -4,7 +4,7 @@
   "description": "Pinball de Alola: un pinball en canvas, sin dependencias, con sprites GIF descodificados a mano.",
   "private": true,
   "scripts": {
-    "start": "python -m http.server 5173",
+    "start": "python servidor.py 5173",
     "start:node": "npx --yes serve -l 5173 ."
   }
 }

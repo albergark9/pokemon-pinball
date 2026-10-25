@@ -15,7 +15,10 @@ Hace falta servirlo por HTTP:
 npm start
 ```
 
-Eso levanta `python -m http.server` en http://localhost:5173. Si prefieres Node:
+Eso levanta `servidor.py` en http://localhost:5173. Es el mismo servidor que
+`python -m http.server`, pero le dice al navegador que no guarde nada en caché: con el
+normal, al recargar seguía saliendo el `juego.js` viejo y había que forzar con Ctrl+F5.
+Si prefieres Node:
 
 ```bash
 npm run start:node

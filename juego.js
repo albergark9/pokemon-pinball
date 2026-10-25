@@ -2749,9 +2749,24 @@ function dChandelure(t){
 const lerp=(a,b,u)=>a+(b-a)*u;
 const PRADERA={x:240,y:254,rx:80,ry:72};
 const BOUNSWEETS=[{x:240,y:222},{x:200,y:274},{x:280,y:274}];
-// la cueva es un entrante en la pared izquierda, entre y0 e y1; la bola espera dentro en (x,y)
-const CUEVA={y0:296,y1:392,x:-6,y:344};
-const CUEVA_CH=[[16,296],[3,300],[-12,311],[-23,328],[-26,344],[-23,360],[-12,376],[16,392]];
+// la cueva está al final de un carril corto que sale fuera de la mesa por la izquierda.
+// La pared exterior es la propia cúpula, que al llegar abajo se abre hacia fuera, así
+// que la bola que rodea la mesa pegada a la pared de derecha a izquierda cae dentro.
+// La interior arranca con una punta en (52,246) y baja hasta unirse a la pared en (16,344).
+const CUEVA={x:-22,y:352};   // fondo del carril, donde espera la bola
+// la cueva devuelve la bola carril arriba con poca fuerza: lo justo para salir por la boca
+const FUERZA_CUEVA=13;
+// al salir por la boca se le marca la velocidad (derecha, arriba): pasa la punta de la
+// pared interior y cae suave entre el carril y el tronco de la izquierda (x≈97 en y=300)
+const SALIDA_CUEVA=[2,3];
+const CARRIL_EXT=[[16,260],[12.3,280.7],[6.5,299],[-3.4,315.6],[-17.1,329.2],[-29.9,338.2],
+                  [-36,350],[-26,363],[-10,366]];
+const CARRIL_INT=[[52,246],[48,262],[45.7,287.3],[37.5,313],[23.4,336.4],[16,344],[5.1,354.8],[-10,366]];
+// tope triangular pegado a la cúpula, a ~125°: la base apoya en la cúpula y el vértice
+// apunta hacia dentro (radio 209). El saque de Machamp va pegado a la cúpula (radio ~205
+// desde el centro) y choca con él, así que cae a la mesa en vez de dar la vuelta hasta la
+// cueva; la bola que rodea la mesa desde abajo va por dentro (radio ~180) y pasa por debajo
+const DESVIO=[[123,69],[121.6,87.8],[103.6,82.3]];
 // dos troncos caídos flanquean la pradera, como los setos de los koffing en la playa
 // el de la izquierda empieza más abajo: por encima de su extremo pasa Spinda al salir de la cueva
 const TRONCOS=[[],[]];
@@ -2767,10 +2782,10 @@ const BOSQUE_CH=[],BOSQUE_PINTA=[];
   const guia=[];for(let a=105;a>=-8;a-=5)guia.push([240+186*Math.cos(a*RAD),260-186*Math.sin(a*RAD)]);
   guia.push([430,300],[430,700]);
   const bajaDer=[[430,588],[394,650],[312,694]];
-  const izquierda=[[16,260]].concat(CUEVA_CH,[[16,588],[86,650],[168,694]]);
-  BOSQUE_CH.push(domo,derecha,guia,bajaDer,izquierda,TRONCOS[0],TRONCOS[1]);
+  const izquierda=[[16,344],[16,588],[86,650],[168,694]];
+  BOSQUE_CH.push(domo,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,TRONCOS[0],TRONCOS[1]);
   // la pared izquierda se pinta como roca hasta y=470; de ahí abajo, muro normal
-  BOSQUE_PINTA.push(domo,derecha,guia,bajaDer,[[16,470],[16,588],[86,650],[168,694]]);
+  BOSQUE_PINTA.push(domo,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[168,694]]);
 })();
 // la cascada cae sobre una poza y sigue en arroyo hasta el estanque
 const POZA={x:378,y:170,rx:22,ry:12};
@@ -2785,7 +2800,8 @@ const SP_PASO=[96,166], SP_CUEVA=[CUEVA.x+8,CUEVA.y-46];
 const FLORES_POR_PASADA=14;
 
 function bosqueNuevo(){return{
-  cueva:0,gancho:0,carga:0,
+  cueva:0,gancho:0,carga:0,expulsada:false,
+  lanzada:false,   // la bola acaba de salir de Machamp y aún no ha vuelto a la parte baja de la mesa
   estado:0,      // pasadas de polen completadas: con 2, la cueva ya no saca a Venomoth sino a Spinda
   nivel:0,       // flores que puntúan: 0 ninguna, 1 rojas (x2), 2 rojas y azules (x3)
   flores:[],polen:[],marchita:0,
@@ -2797,27 +2813,38 @@ function bosqueNuevo(){return{
 /* ---------------- cueva ---------------- */
 // con Venomoth o Spinda fuera, o en plena captura, la cueva no hace nada
 const cuevaLibre=()=>{const B=G.bosque;return !B.vm.fase&&!B.sp.fase&&!G.mode&&!G.capAnim;};
-/* la cueva libre aspira un poco la bola que pasa cerca de la boca,
-   como la pokébola del bonus en la playa */
-function atraeCueva(){
-  if(!cuevaLibre()||ball.x>78||ball.y<CUEVA.y0-24||ball.y>CUEVA.y1+24)return;
-  ball.vx+=(CUEVA.x-ball.x)*0.0035;ball.vy+=(CUEVA.y-ball.y)*0.0025;
-}
+/* la bola que llega al fondo del carril entra en la cueva; si la cueva está
+   ocupada, la devuelve carril arriba y no pasa nada más */
 function compruebaCueva(){
   const B=G.bosque;
-  // basta con que la bola se meta unos 19 px en el entrante; la que baja
-  // pegada a la pared (x≈31) no llega
-  if(ball.x>12||ball.y<CUEVA.y0||ball.y>CUEVA.y1||!cuevaLibre())return;
+  if(ball.y>420&&ball.x<430)B.lanzada=false;   // ya de vuelta en la mesa, fuera del carril del lanzador
+  if(Math.hypot(ball.x-CUEVA.x,ball.y-CUEVA.y)>14)return;
+  // ocupada, o el saque de Machamp que se ha colado por debajo del tope: se devuelve
+  if(!cuevaLibre()||B.lanzada){devuelveBola();beep(200,.08,'square',.04);return;}
   B.cueva=50;
   ball.state='held';ball.vx=0;ball.vy=0;ball.x=CUEVA.x;ball.y=CUEVA.y;ball.trail.length=0;
   barrido(520,150,0.35,'sine',0.05);shake=Math.max(shake,5);
   score(3000,44,CUEVA.y-34);
   if(B.estado<2)saleVenomoth();else saleSpinda();
 }
+/* lanza la bola desde el fondo del carril hacia arriba, de vuelta a la mesa */
+function devuelveBola(){
+  ball.state='play';ball.x=CUEVA.x+4;ball.y=CUEVA.y-4;
+  ball.vx=0.67*FUERZA_CUEVA*SPD;ball.vy=-0.74*FUERZA_CUEVA*SPD;ball.idle=0;
+  G.bosque.expulsada=true;
+}
+/* al salir por la boca, la bola expulsada se frena y se desvía hacia la mesa: si
+   siguiera pegada a la cúpula volvería a caer al carril y la cueva la devolvería
+   una y otra vez */
+function salidaCarril(){
+  const B=G.bosque;
+  if(!B.expulsada||ball.state!=='play')return;
+  if(ball.y<CARRIL_INT[0][1]){ball.vx=SALIDA_CUEVA[0]*SPD;ball.vy=Math.max(ball.vy,-SALIDA_CUEVA[1]*SPD);B.expulsada=false;}
+  else if(ball.x>CARRIL_INT[0][0]+20)B.expulsada=false;   // ya salió por otro lado
+}
 function expulsaCueva(){
-  ball.state='play';ball.x=CUEVA.x+2;ball.y=CUEVA.y;
-  ball.vx=7.8*SPD;ball.vy=-1.4*SPD;ball.idle=0;
-  addFx(14,CUEVA.y,10,'#c9b8a0',3);beep(240,.1,'square',.045);
+  devuelveBola();ball.trail.length=0;
+  addFx(CUEVA.x+8,CUEVA.y-8,10,'#c9b8a0',3);beep(240,.1,'square',.045);
 }
 
 /* ---------------- machamp ---------------- */
@@ -2828,7 +2855,7 @@ function ganchoMachamp(){
 }
 function impactoGancho(){
   const B=G.bosque;
-  disparaBola(B.carga);
+  disparaBola(B.carga);B.lanzada=true;
   shake=Math.max(shake,4+B.carga*6);
   addFx(MACHAMP.x,676,12,'#e8e6f2',4);
   beep(110,.12,'square',.06);
@@ -3041,9 +3068,8 @@ function updateBosque(){
     if(G.charging&&!B.gancho)G.charge=Math.min(1,G.charge+0.022);
     ball.y=668+G.charge*22;
   } else if(ball.state==='play'){
-    atraeCueva();
     physicsBosque();
-    compruebaCueva();
+    compruebaCueva();salidaCarril();
     if(ball.state==='play'){
       ball.trail.push({x:ball.x,y:ball.y});if(ball.trail.length>12)ball.trail.shift();
       const spd=Math.hypot(ball.vx,ball.vy);
@@ -3260,7 +3286,7 @@ function perimetroBosque(){
   const per=[];
   for(let a=180;a>=0;a-=6)per.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
   per.push([464,258],[464,700],[430,700],[312,694],[240,760],[168,694],[86,650],[16,588]);
-  return per.concat(CUEVA_CH.slice().reverse(),[[16,258]]);
+  return per.concat([[16,258]]);
 }
 function seta(x,y,k){
   const s=PS(y)*k,X=PX(x,y),Y=PY(y);
@@ -3310,22 +3336,44 @@ function tableroBosque(t){
   [[44,532,1],[58,546,0.7],[414,540,0.9]].forEach(m=>seta(m[0],m[1],m[2]));
   g.restore();
 }
-/* boca de la cueva y roca de la falda de la montaña */
+/* el carril de la cueva, la boca al fondo y el tope del saque, todo en roca */
 function rocaCueva(){
   g.save();
-  pathChain(CUEVA_CH);g.closePath();
+  // suelo del carril: tierra oscura que se hunde hacia la cueva
+  pathChain(CARRIL_EXT.concat(CARRIL_INT.slice().reverse()));g.closePath();
   const X=PX(CUEVA.x,CUEVA.y),Y=PY(CUEVA.y);
-  const os=g.createRadialGradient(X-4,Y,2,X,Y,46);
-  os.addColorStop(0,'#000');os.addColorStop(.7,'#0a0c0e');os.addColorStop(1,'#1c2024');
-  g.fillStyle=os;g.fill();
+  const suelo=g.createLinearGradient(0,PY(250),0,PY(366));
+  suelo.addColorStop(0,'#2a2a22');suelo.addColorStop(1,'#121310');
+  g.fillStyle=suelo;g.fill();
+  // la boca de la cueva, al fondo
+  const os=g.createRadialGradient(X,Y,1,X,Y,24);
+  os.addColorStop(0,'#000');os.addColorStop(.7,'#08090b');os.addColorStop(1,'rgba(20,22,26,0)');
+  g.fillStyle=os;g.beginPath();g.ellipse(X,Y,17,15,0,0,7);g.fill();
   g.restore();
-  setoStroke([[[26,214],[18,250],[16,300]],[[16,388],[16,430],[18,470]]],
-    ['#16161c','#26262e','#3e3e48','#55555f','#7a7a86'],0);
-  // arco de piedra que enmarca la boca
+  // paredes del carril: roca más baja y fina que la de los setos, para que se vea el suelo
+  // la pared interior entera en roca, también el tramo que cierra la cueva por abajo
+  rocaFina([[[26,214],[18,240]].concat(CARRIL_EXT),CARRIL_INT]);
+  // el tope del saque: un triángulo macizo con el verde, el brillo y el canto de las paredes
+  g.save();g.lineJoin='round';g.lineCap='round';
+  pathChain(DESVIO);g.closePath();
+  g.shadowColor=PAL_BOSQUE.brillo;g.shadowBlur=14;
+  g.fillStyle=PAL_BOSQUE.muro;g.fill();
+  g.strokeStyle=PAL_BOSQUE.muro;g.lineWidth=7;g.stroke();
+  g.shadowBlur=0;g.strokeStyle=PAL_BOSQUE.canto;g.lineWidth=2;g.stroke();
+  g.restore();
+}
+/* pared de roca baja: el mismo dibujo de capas que setoStroke, a la mitad de alto y de ancho */
+function rocaFina(cadenas){
   g.save();g.lineCap='round';g.lineJoin='round';
-  g.strokeStyle='#2e2e36';g.lineWidth=9;pathChain(CUEVA_CH);g.stroke();
-  g.strokeStyle='#6a6a76';g.lineWidth=5;pathChain(CUEVA_CH);g.stroke();
-  g.strokeStyle='rgba(255,255,255,.18)';g.lineWidth=1.6;pathChain(CUEVA_CH);g.stroke();
+  cadenas.forEach(ch=>{
+    const path=off=>{g.beginPath();
+      ch.forEach((p,i)=>{const X=PX(p[0],p[1]),Y=PY(p[1])+off;i?g.lineTo(X,Y):g.moveTo(X,Y);});};
+    path(5);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=13;g.stroke();
+    path(2);g.strokeStyle='#26262e';g.lineWidth=12;g.stroke();
+    path(-3);g.strokeStyle='#3e3e48';g.lineWidth=10;g.stroke();
+    path(-6);g.strokeStyle='#5c5c68';g.lineWidth=6;g.stroke();
+    path(-7.5);g.strokeStyle='#8a8a96';g.lineWidth=2.2;g.stroke();
+  });
   g.restore();
 }
 /* troncos caídos a los lados de la pradera: el mismo volumen que los setos, en madera */
@@ -3350,14 +3398,6 @@ function dCueva(t){
   const X=PX(CUEVA.x,CUEVA.y),Y=PY(CUEVA.y),s=PS(CUEVA.y);
   const libre=cuevaLibre();
   g.save();
-  // resplandor dentro de la boca mientras la cueva espera la bola
-  if(libre||B.cueva>0){
-    const col=B.estado<2?'190,150,255':'255,150,170';
-    const pul=0.3+0.22*Math.sin(t/10);
-    const gl=g.createRadialGradient(X,Y,2,X,Y,40*s);
-    gl.addColorStop(0,'rgba('+col+','+pul+')');gl.addColorStop(1,'rgba('+col+',0)');
-    g.fillStyle=gl;g.beginPath();g.ellipse(X,Y,22*s,46*s,0,0,7);g.fill();
-  }
   // ojos de Venomoth brillando en la oscuridad (parpadean de vez en cuando)
   if(libre&&B.estado<2&&fr(t/170)>0.05){
     g.fillStyle='rgba(225,215,255,.9)';
@@ -3370,7 +3410,7 @@ function dCueva(t){
   [[318,'#ff4a4a',B.estado>=1],[344,'#5aa8ff',B.estado>=2],[370,'#ff8fb0',B.estado>=2||!!p.fase]]
   .forEach((m,i)=>{
     const s2=PS(m[0]);
-    g.save();g.translate(PX(40,m[0]),PY(m[0]));g.scale(s2,s2);
+    g.save();g.translate(PX(62,m[0]),PY(m[0]));g.scale(s2,s2);
     g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(0,1.5,8,5,0,0,7);g.fill();
     if(m[2]){g.shadowColor=m[1];g.shadowBlur=10;}
     const col=m[2]?m[1]:'rgba(200,230,190,.2)';
