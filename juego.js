@@ -43,10 +43,13 @@ Object.assign(SPRITES_EXTERNOS,{
   'bounsweet-decoracion':RUTA_BOSQUE+'bounsweet-decoracion.gif',
   'machamp-decoracion':RUTA_BOSQUE+'machamp-decoracion.gif',
   'venomoth-decoracion':RUTA_BOSQUE+'venomoth-decoración.gif',
-  'spinda-decoracion':RUTA_BOSQUE+'spinda-decoracion.gif'
+  'spinda-decoracion':RUTA_BOSQUE+'spinda-decoracion.gif',
+  'dragonite-decoracion':RUTA_BOSQUE+'dragonite-decoracion.gif',
+  'politoed-decoracion':RUTA_BOSQUE+'politoed-decoracion.gif'
 });
 // estos gifs traen mucho lienzo vacío alrededor: se recortan al cargarlos
-const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-decoracion','spinda-decoracion']);
+const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-decoracion','spinda-decoracion',
+  'dragonite-decoracion','politoed-decoracion']);
 const CAPTURABLES=['doduo','dragonair','arcanine','noibat','garchomp','tyrunt','skiddo','combusken',
   'braixen','delphox','fennekin','torracat','glaceon','drapion','lucario','venusaur','eevee','lurantis',
   'pichu','noivern','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
@@ -2767,6 +2770,21 @@ const CARRIL_INT=[[52,246],[48,262],[45.7,287.3],[37.5,313],[23.4,336.4],[16,344
 // desde el centro) y choca con él, así que cae a la mesa en vez de dar la vuelta hasta la
 // cueva; la bola que rodea la mesa desde abajo va por dentro (radio ~180) y pasa por debajo
 const DESVIO=[[123,69],[121.6,87.8],[103.6,82.3]];
+// carril de Dragonite: sale de la cúpula a 153°, justo donde la montaña del fondo pasa de
+// gris claro a gris oscuro, sube curvándose hacia la izquierda y acaba en una cámara
+// redonda junto al borde izquierdo de la pantalla, donde la montaña se junta con el cielo.
+// La cúpula se abre entre 145,5° y 160,5° para la boca, que hace de embudo hacia el carril.
+// Es una sola pared: el lado de arriba,
+// la vuelta a la cámara y el lado de abajo de regreso a la cúpula.
+const DRAGONITE={x:-40,y:94,alcance:20};   // alcance: distancia a la que su cola golpea la bola
+// compuerta de un solo sentido en la boca (el tramo de cúpula que falta): para la bola
+// que rodea la mesa es pared, así que sigue de largo hacia la cueva; la que sube hacia
+// el carril la atraviesa, y la que vuelve del carril no la nota
+const COMPUERTA=[],COMPUERTA_SUBE=1.5;   // velocidad hacia arriba a partir de la cual se abre
+const DRA_PARED=[[55.4,133.1],[44.4,125],[24.9,102.9],[1.3,88.6],[-15.5,82.6],
+  [-19.3,76.6],[-26.5,70.6],[-35.3,67.4],[-44.7,67.4],[-53.5,70.6],[-60.7,76.6],[-65.4,84.8],
+  [-67,94],[-65.4,103.2],[-60.7,111.4],[-53.5,117.4],[-44.7,120.6],[-35.3,120.6],
+  [-24.5,116.1],[-13.3,119.4],[3.1,129.1],[15.6,143],[28.8,185.2]];
 // dos troncos caídos flanquean la pradera, como los setos de los koffing en la playa
 // el de la izquierda empieza más abajo: por encima de su extremo pasa Spinda al salir de la cueva
 const TRONCOS=[[],[]];
@@ -2775,17 +2793,20 @@ for(let i=0;i<=8;i++){const u=i/8;
   TRONCOS[1].push([330+Math.sin(u*2.6)*16+u*3,196+u*90]);}
 const BOSQUE_CH=[],BOSQUE_PINTA=[];
 (function(){
-  const domo=[];
-  for(let a=180;a>=0;a-=5)domo.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
+  // la cúpula se abre entre 145,5° y 160,5° para la boca del carril de Dragonite
+  const arco=(a0,a1)=>{const q=[];for(let a=a0;a>a1;a-=5)q.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
+    q.push([240+224*Math.cos(a1*RAD),260-224*Math.sin(a1*RAD)]);return q;};
+  const domo=arco(145.5,0),domoIzq=arco(180,160.5);
+  COMPUERTA.push(...arco(160.5,145.5));
   // pared derecha y carril del lanzador: los mismos que en la playa
   const derecha=[[464,258],[464,700],[430,700]];
   const guia=[];for(let a=105;a>=-8;a-=5)guia.push([240+186*Math.cos(a*RAD),260-186*Math.sin(a*RAD)]);
   guia.push([430,300],[430,700]);
   const bajaDer=[[430,588],[394,650],[312,694]];
   const izquierda=[[16,344],[16,588],[86,650],[168,694]];
-  BOSQUE_CH.push(domo,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,TRONCOS[0],TRONCOS[1]);
+  BOSQUE_CH.push(domo,domoIzq,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,DRA_PARED,TRONCOS[0],TRONCOS[1]);
   // la pared izquierda se pinta como roca hasta y=470; de ahí abajo, muro normal
-  BOSQUE_PINTA.push(domo,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[168,694]]);
+  BOSQUE_PINTA.push(domo,domoIzq,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[168,694]]);
 })();
 // la cascada cae sobre una poza y sigue en arroyo hasta el estanque
 const POZA={x:378,y:170,rx:22,ry:12};
@@ -2801,6 +2822,7 @@ const FLORES_POR_PASADA=14;
 
 function bosqueNuevo(){return{
   cueva:0,gancho:0,carga:0,expulsada:false,
+  rio:null,draGolpe:0,pol:nuevoPolitoed(),   // el viaje de la bola por el río y Politoed en el estanque
   lanzada:false,   // la bola acaba de salir de Machamp y aún no ha vuelto a la parte baja de la mesa
   estado:0,      // pasadas de polen completadas: con 2, la cueva ya no saca a Venomoth sino a Spinda
   nivel:0,       // flores que puntúan: 0 ninguna, 1 rojas (x2), 2 rojas y azules (x3)
@@ -3001,6 +3023,104 @@ function pasoSpinda(){
   }
 }
 
+/* ---------------- Dragonite, el río y Politoed ----------------
+   Dragonite da coletazos sin parar al final de su carril. La bola que llega hasta él
+   sale volando a la esquina de arriba a la derecha, baja con el río, cae por la
+   cascada, sigue el arroyo hasta el estanque y se hunde un segundo. Entonces asoma
+   Politoed, que la saca de vuelta a la mesa; luego vuelve a asomar cada 5 s. Golpearlo
+   mientras asoma hace evolucionar la bola, y se esconde hasta el próximo coletazo. */
+const T_VUELO=60,T_RIO=80,T_CAIDA=26,T_ARROYO=100,T_HUNDE=60;   // frames de cada tramo del viaje
+const POLITOED={x:ESTANQUE.x,y:ESTANQUE.y,alto:30,rad:18};
+const POL_SUBE=18,POL_PAUSA=300;   // lo que tarda en asomar o hundirse, y la pausa entre asomadas
+// pantalla -> mundo (la inversa de PX/PY): el río y la cascada van en coordenadas de pantalla
+function aMundo(X,Y){const y=(Y-30)/0.945;return [240+(X-240)/PS(y),y];}
+function nuevoPolitoed(){return{fase:null,t:0,dur:0,escupe:false,activo:false,cd:0,inmune:0};}
+function compruebaDragonite(){
+  const B=G.bosque;
+  if(B.rio||ball.state!=='play'||Math.hypot(ball.x-DRAGONITE.x,ball.y-DRAGONITE.y)>DRAGONITE.alcance)return;
+  B.rio={fase:'vuelo',t:0,x0:PX(ball.x,ball.y),y0:PY(ball.y)};B.draGolpe=18;
+  ball.state='held';ball.vx=0;ball.vy=0;ball.trail.length=0;
+  score(5000,DRAGONITE.x+40,DRAGONITE.y-24);shake=Math.max(shake,9);
+  addFx(ball.x,ball.y,16,'#ffb45a',5);beep(140,.18,'sawtooth',.06);
+  say('¡Coletazo de Dragonite! La bola sale volando hacia el río',200);
+}
+function pasoRio(){
+  const R=G.bosque.rio;R.t++;
+  const pon=(X,Y)=>{[ball.x,ball.y]=aMundo(X,Y);};
+  if(R.fase==='vuelo'){
+    // arco por encima de la mesa hasta el río, arriba a la derecha
+    const u=Math.min(1,R.t/T_VUELO),fin=sobreRuta(RIO,0.08);
+    pon(lerp(R.x0,fin[0],u),lerp(R.y0,fin[1],u)-Math.sin(u*Math.PI)*70);ball.rot+=0.3;
+    if(u>=1){R.fase='rio';R.t=0;addFx(ball.x,ball.y,8,'#e8f8ff',2);}
+  } else if(R.fase==='rio'){
+    const u=Math.min(1,R.t/T_RIO),q=sobreRuta(RIO,0.08+0.92*u);
+    pon(q[0],q[1]+Math.sin(R.t/4)*1.5);ball.rot+=0.25;
+    if(u>=1){R.fase='caida';R.t=0;}
+  } else if(R.fase==='caida'){
+    const u=Math.min(1,R.t/T_CAIDA),xb=PX(POZA.x,POZA.y),yb=PY(POZA.y),c=RIO[RIO.length-1];
+    pon(lerp(c[0],xb,u),lerp(c[1],yb,u*u));
+    if(u>=1){R.fase='arroyo';R.t=0;addFx(POZA.x,POZA.y,12,'#e8f8ff',3);beep(300,.15,'sine',.04);}
+  } else if(R.fase==='arroyo'){
+    const u=Math.min(1,R.t/T_ARROYO);
+    [ball.x,ball.y]=sobreRuta([[POZA.x,POZA.y]].concat(ARROYO,[[ESTANQUE.x,ESTANQUE.y]]),u);ball.rot+=0.2;
+    if(u>=1){R.fase='hunde';R.t=0;addFx(ESTANQUE.x,ESTANQUE.y,14,'#bfe8ff',3);barrido(400,120,0.4,'sine',0.05);}
+  } else if(R.fase==='hunde'){
+    if(R.t%8===0)addFx(ESTANQUE.x+(Math.random()-.5)*10,ESTANQUE.y-4,1,'#dff6ff',1);
+    if(R.t>=T_HUNDE){R.fase='espera';R.t=0;asomaPolitoed(2,true);}
+  }
+  // 'espera': la bola sigue en el fondo hasta que Politoed la saca
+}
+/* un ciclo del gif de Politoed, en frames del juego */
+function vueltaPolitoed(){
+  const rep=GIFS['politoed-decoracion'];
+  return rep?Math.round(rep.f.reduce((a,f)=>a+f.delay,0)/(1000/60)):288;
+}
+function asomaPolitoed(vueltas,escupe){
+  Object.assign(G.bosque.pol,{fase:'sube',t:0,dur:vueltas*vueltaPolitoed(),escupe,activo:true});
+  const rep=GIFS['politoed-decoracion'];if(rep){rep.i=0;rep.acc=0;}   // el gif empieza desde el principio
+  addFx(POLITOED.x,POLITOED.y,10,'#dff6ff',2.5);beep(660,.08,'triangle',.04);
+}
+function pasoPolitoed(){
+  const P=G.bosque.pol;
+  if(P.inmune>0)P.inmune--;
+  if(!P.fase){if(P.activo&&--P.cd<=0)asomaPolitoed(1,false);return;}
+  P.t++;
+  if(P.fase==='sube'){if(P.t>=POL_SUBE){P.fase='juega';P.t=0;}}
+  else if(P.fase==='juega'){
+    if(P.escupe&&P.t===24)escupePolitoed();
+    if(P.t>=P.dur){P.fase='baja';P.t=0;}
+  } else if(P.fase==='baja'){if(P.t>=POL_SUBE){P.fase=null;P.t=0;P.cd=POL_PAUSA;}}
+}
+// cuánto asoma (0 bajo el agua, 1 fuera del todo)
+function asomaP(){
+  const P=G.bosque.pol;
+  return P.fase==='juega'?1:P.fase==='sube'?P.t/POL_SUBE:P.fase==='baja'?1-P.t/POL_SUBE:0;
+}
+function escupePolitoed(){
+  const B=G.bosque,P=B.pol;
+  P.escupe=false;P.inmune=50;B.rio=null;
+  // la escupe hacia la izquierda, por encima de la pradera: si saliera recta volvería
+  // a caer sobre Politoed y lo golpearía sin que el jugador hiciera nada
+  ball.state='play';ball.x=POLITOED.x;ball.y=POLITOED.y-16;ball.vx=-6*SPD;ball.vy=-9*SPD;
+  ball.idle=0;ball.trail.length=0;
+  addFx(ball.x,ball.y,14,'#bfe8ff',4);beep(880,.1,'triangle',.05);
+  say('¡Politoed saca la bola del estanque! Golpéalo mientras asoma',220);
+}
+function golpePolitoed(){
+  const P=G.bosque.pol;
+  if(P.inmune>0||!P.activo)return;
+  P.activo=false;
+  const t0=P.fase==='sube'?POL_SUBE-P.t:0;P.fase='baja';P.t=t0;   // se hunde desde donde esté
+  // la bola evoluciona: pokéball -> superball -> ultraball
+  const antes=G.bola||0;if(antes<2){G.bola=antes+1;G.bolaT=0;}
+  G.bolaFx=40;score(10000,POLITOED.x,POLITOED.y-34);shake=Math.max(shake,8);
+  addFx(ball.x,ball.y,22,G.bola===2?'#ff6b5a':'#ffe14a',5);
+  chime(G.bola===2?[880,1175,1568]:[659,880,1046],75);
+  say(antes>=2?'¡Politoed! Ya llevabas una ultraball'
+      :G.bola===1?'¡Politoed hace evolucionar la bola! SUPERBALL · puntos x1,5'
+                 :'¡Politoed hace evolucionar la bola! ULTRABALL · puntos x2',240);
+}
+
 /* ---------------- fin de captura y bola perdida ---------------- */
 function finCapturaBosque(){
   const B=G.bosque;
@@ -3046,6 +3166,15 @@ function physicsBosque(){
     if(B.vm.fase==='vuela')collide(B.vm.x,B.vm.y,B.vm.x,B.vm.y,VM_RAD,0.5,4*SPD,()=>golpeVenomoth());
     if(B.sp.fase==='pasea')collide(B.sp.x,B.sp.y,B.sp.x,B.sp.y,SP_RAD,0.5,3.4*SPD,()=>golpeSpinda());
     if(G.mode==='captura'&&G.wild)collide(G.wild.x,G.wild.y,G.wild.x,G.wild.y,30,0.4,3.5*SPD,()=>hurtWild());
+    // compuerta de la boca de Dragonite: solo frena desde dentro y a la bola que no sube.
+    // Las órbitas pasan por la boca bajando (vienen de arriba a la derecha); los tiros al
+    // carril, subiendo
+    {const dx=ball.x-240,dy=ball.y-260,rr=Math.hypot(dx,dy);
+      if(rr<224&&ball.vy>-COMPUERTA_SUBE)
+        for(let i=0;i<COMPUERTA.length-1;i++)collide(COMPUERTA[i][0],COMPUERTA[i][1],COMPUERTA[i+1][0],COMPUERTA[i+1][1],7,0.42,0,null);}
+    // Politoed, mientras asoma del estanque
+    if(B.pol.activo&&B.pol.inmune<=0&&asomaP()>0.5)
+      collide(POLITOED.x,POLITOED.y-8,POLITOED.x,POLITOED.y-8,POLITOED.rad,0.5,4*SPD,()=>golpePolitoed());
     flipperHit(F.L);flipperHit(F.R);
     const sp=Math.hypot(ball.vx,ball.vy);
     if(sp>MAXV){ball.vx*=MAXV/sp;ball.vy*=MAXV/sp;}
@@ -3059,17 +3188,19 @@ function updateBosque(){
   if(G.saver>0)G.saver--;
   if(B.marchita>0&&--B.marchita<=0)B.flores=[];
   B.flores.forEach(f=>{if(f.nace&&f.nace<30)f.nace++;});
-  pasoPolen();pasoVenomoth();pasoSpinda();
+  pasoPolen();pasoVenomoth();pasoSpinda();pasoPolitoed();
+  if(B.draGolpe>0)B.draGolpe--;
   if(G.capAnim){capturaPaso();return;}
   if(B.gancho>0&&--B.gancho===GANCHO_IMPACTO&&ball.state==='ready')impactoGancho();
-  if(B.cueva>0){if(--B.cueva<=0)expulsaCueva();}
+  if(B.rio)pasoRio();
+  else if(B.cueva>0){if(--B.cueva<=0)expulsaCueva();}
   else if(ball.state==='ready'){
     // mientras el gancho va de camino la carga ya no sube
     if(G.charging&&!B.gancho)G.charge=Math.min(1,G.charge+0.022);
     ball.y=668+G.charge*22;
   } else if(ball.state==='play'){
     physicsBosque();
-    compruebaCueva();salidaCarril();
+    compruebaCueva();salidaCarril();compruebaDragonite();
     if(ball.state==='play'){
       ball.trail.push({x:ball.x,y:ball.y});if(ball.trail.length>12)ball.trail.shift();
       const spd=Math.hypot(ball.vx,ball.vy);
@@ -3353,6 +3484,12 @@ function rocaCueva(){
   // paredes del carril: roca más baja y fina que la de los setos, para que se vea el suelo
   // la pared interior entera en roca, también el tramo que cierra la cueva por abajo
   rocaFina([[[26,214],[18,240]].concat(CARRIL_EXT),CARRIL_INT]);
+  // carril de Dragonite: suelo oscuro hasta la cámara y la misma roca fina en las paredes
+  g.save();pathChain(DRA_PARED);g.closePath();
+  const sueloD=g.createLinearGradient(PX(50,141),0,PX(-67,94),0);
+  sueloD.addColorStop(0,'#2a2a22');sueloD.addColorStop(1,'#16140f');
+  g.fillStyle=sueloD;g.fill();g.restore();
+  rocaFina([DRA_PARED]);
   // el tope del saque: un triángulo macizo con el verde, el brillo y el canto de las paredes
   g.save();g.lineJoin='round';g.lineCap='round';
   pathChain(DESVIO);g.closePath();
@@ -3393,6 +3530,11 @@ function dTroncos(){
   });
   g.restore();
 }
+/* la espiral de Spinda (solo el trazado; cada uno pone su color y grosor) */
+function espiral(cx,cy,esc){
+  g.beginPath();
+  for(let k=0;k<=24;k++){const a=k/24*Math.PI*3.4,r=(0.4+k*0.24)*esc;g.lineTo(cx+Math.cos(a)*r*1.2,cy+Math.sin(a)*r);}
+}
 function dCueva(t){
   const B=G.bosque,v=B.vm,p=B.sp;
   const X=PX(CUEVA.x,CUEVA.y),Y=PY(CUEVA.y),s=PS(CUEVA.y);
@@ -3405,9 +3547,16 @@ function dCueva(t){
     g.fillStyle='#1a1020';
     g.beginPath();g.arc(X-5*s,Y-5.4*s,1.2*s,0,7);g.arc(X+4*s,Y-5.4*s,1.2*s,0,7);g.fill();
   }
+  // con las flores azules la que espera dentro es Spinda: sus ojos son dos espirales
+  // como la del marcador encendido (y parpadean igual que los de Venomoth)
+  if(libre&&B.estado>=2&&fr(t/170)>0.05){
+    g.strokeStyle='#ff8fb0';g.lineWidth=1.4*s;g.lineCap='round';
+    g.shadowColor='#ff8fb0';g.shadowBlur=8;
+    [[X-5*s,Y-6*s],[X+5*s,Y-6*s]].forEach(o=>{espiral(o[0],o[1],0.6*s);g.stroke();});
+  }
   g.restore();
   // marcador junto a la boca: flor roja, flor azul y la espiral de Spinda
-  [[318,'#ff4a4a',B.estado>=1],[344,'#5aa8ff',B.estado>=2],[370,'#ff8fb0',B.estado>=2||!!p.fase]]
+  [[318,'#ff4a4a',B.estado>=1],[344,'#5aa8ff',B.estado>=2],[370,'#ff8fb0',!!p.fase]]
   .forEach((m,i)=>{
     const s2=PS(m[0]);
     g.save();g.translate(PX(62,m[0]),PY(m[0]));g.scale(s2,s2);
@@ -3421,9 +3570,7 @@ function dCueva(t){
       g.shadowBlur=0;g.fillStyle=m[2]?'#ffe14a':'rgba(200,230,190,.25)';
       g.beginPath();g.arc(0,0,1.6,0,7);g.fill();
     } else {
-      g.strokeStyle=col;g.lineWidth=1.8;g.lineCap='round';g.beginPath();
-      for(let k=0;k<=24;k++){const a=k/24*Math.PI*3.4,r=0.4+k*0.24;g.lineTo(Math.cos(a)*r*1.2,Math.sin(a)*r);}
-      g.stroke();
+      g.strokeStyle=col;g.lineWidth=1.8;g.lineCap='round';espiral(0,0,1);g.stroke();
     }
     g.restore();
   });
@@ -3766,11 +3913,48 @@ function dMachamp(t){
     machampPropio(X,Y-4*s,s,t,B.gancho>0);
   g.restore();
 }
+/* Dragonite en su cámara, dando coletazos; destella al golpear la bola */
+function dDragonite(t){
+  const B=G.bosque,D=DRAGONITE,s=PS(D.y),X=PX(D.x,D.y),Y=PY(D.y);
+  g.save();
+  g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(X+4*s,Y+14*s,20*s,5*s,0,0,7);g.fill();
+  if(!gifCentrado('dragonite-decoracion',D.x+6,D.y-6,24)){
+    g.save();g.translate(X,Y-6*s);g.scale(s,s);
+    g.fillStyle='#f2b84a';g.beginPath();g.ellipse(0,0,13,16,0,0,7);g.fill();
+    g.fillStyle='#f7e3b0';g.beginPath();g.ellipse(0,4,8,10,0,0,7);g.fill();
+    g.fillStyle='#3fae9c';g.beginPath();g.ellipse(-14,-6,8,4,-0.6,0,7);g.ellipse(14,-6,8,4,0.6,0,7);g.fill();
+    g.restore();
+  }
+  if(B.draGolpe>0){g.globalAlpha=B.draGolpe/18*0.6;g.fillStyle='#fff';
+    g.beginPath();g.arc(X+4*s,Y-6*s,26*s,0,7);g.fill();}
+  g.restore();
+}
+/* Politoed asomando del estanque: solo se ve la mitad de arriba, por encima del agua */
+function dPolitoed(t){
+  const P=G.bosque.pol,k=asomaP();
+  if(k<=0)return;
+  const s=PS(POLITOED.y),X=PX(POLITOED.x,POLITOED.y),agua=PY(POLITOED.y);
+  g.save();
+  g.beginPath();g.rect(0,0,W,agua);g.clip();
+  const alza=-POLITOED.alto*1.5*(1-k);   // sube desde debajo del agua
+  if(!gifCentrado('politoed-decoracion',POLITOED.x,POLITOED.y,POLITOED.alto,0,alza)){
+    const Yc=agua-alza*s;
+    g.fillStyle='#5fbf4a';g.beginPath();g.ellipse(X,Yc-14*s,13*s,12*s,0,0,7);g.fill();
+    g.strokeStyle='#2f5f9f';g.lineWidth=2*s;g.beginPath();g.moveTo(X,Yc-26*s);g.quadraticCurveTo(X+6*s,Yc-34*s,X+2*s,Yc-38*s);g.stroke();
+    ojo(g,X-5*s,Yc-17*s,2*s);ojo(g,X+5*s,Yc-17*s,2*s);
+  }
+  g.restore();
+  // onda en el agua alrededor de donde asoma
+  g.save();g.strokeStyle='rgba(225,248,255,'+(0.5*k)+')';g.lineWidth=1.4;
+  const ph=fr(t/40);
+  g.beginPath();g.ellipse(X,agua,(14+ph*10)*s,(4+ph*3)*s,0,0,7);g.stroke();
+  g.restore();
+}
 function dibujaBosque(t){
   fondoBosque(t);
   g.drawImage(capaMesa(),0,0);
-  dAgua(t);dCascada(t);
-  dCueva(t);
+  dAgua(t);dCascada(t);dPolitoed(t);
+  dDragonite(t);dCueva(t);
   dPradera(t);dFlores(t);
   BOUNSWEETS.forEach(b=>dBounsweet(b,t));
   dSpinda(t);dVenomoth(t);dPolen(t);
@@ -4221,7 +4405,8 @@ function dComun(t){
   if(G.escena==='alola'){dChandelure(t);dEmolga(t);}
   else if(G.escena==='bosque')dMachamp(t);
   // bola (dentro de la cueva de Venomoth no se ve)
-  const oculta=G.escena==='bosque'&&G.bosque.cueva>0;
+  const R=G.escena==='bosque'?G.bosque.rio:null;
+  const oculta=G.escena==='bosque'&&(G.bosque.cueva>0||(R&&((R.fase==='hunde'&&R.t>12)||R.fase==='espera')));
   if(!oculta){
   if(ball.state!=='held'){
     ball.trail.forEach((p,i)=>{
