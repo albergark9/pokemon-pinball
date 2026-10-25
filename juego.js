@@ -495,6 +495,22 @@ function beep(f,d,type,vol){
 }
 function chime(list,step){list.forEach((f,i)=>setTimeout(()=>beep(f,.16,'triangle',.06),i*(step||70)));} */
 let AC=null,sound=true;
+/* música de fondo, bajita: tablero.mp3 en las mesas normales y bonus.mp3 en los bonus.
+   Suena solo durante la partida; con la pausa, la pokédex o el sonido apagado (M) se para,
+   y al volver sigue por donde iba */
+const MUSICA={tablero:new Audio('assets/music/tablero.mp3'),bonus:new Audio('assets/music/bonus.mp3')};
+for(const k in MUSICA){MUSICA[k].loop=true;MUSICA[k].volume=0.22;}
+function musicaPaso(){
+  const quiere=sound&&G.state==='play'&&!G.paused
+    ?(G.escena==='mew'||G.escena==='pista'?'bonus':'tablero'):null;
+  for(const k in MUSICA){
+    const a=MUSICA[k];
+    if(k===quiere){
+      // play() es asíncrono: mientras no arranca no se vuelve a pedir
+      if(a.paused&&!a.pidiendo){a.pidiendo=true;a.play().catch(()=>{}).finally(()=>{a.pidiendo=false;});}
+    } else if(!a.paused)a.pause();
+  }
+}
 /* barrido de frecuencia: la base del sonido de tragar */
 function barrido(f0,f1,d,type,vol){
   if(!sound)return; try{
@@ -718,13 +734,13 @@ const CHAINS=[];
      canal vertical que baja recto hasta el snorlax; al chocar con él sale
      disparada hacia arriba. */
   CHAINS.push([[16,Y_BOCA],[16,588],[24,595],[44,642],[44,692]]);
-  CHAINS.push([[80,692],[80,645],[86,650],[168,694]]);
+  CHAINS.push([[80,692],[80,645],[86,650],[159.5,694]]);
   window.SNOR={x:62,xIzq:44,xDer:80,yTope:689,yBoca:595,xBoca:24,yCuello:642};
   CHAINS.push([[464,258],[464,700],[430,700]]);
   const guide=[];for(let a=105;a>=-8;a-=5)guide.push([240+186*Math.cos(a*RAD),260-186*Math.sin(a*RAD)]);
   guide.push([430,300],[430,700]);
   CHAINS.push(guide);
-  CHAINS.push([[430,588],[394,650],[312,694]]);
+  CHAINS.push([[430,588],[394,650],[320.5,694]]);
   // guías curvas que flanquean a los koffing (las dos curvas largas del boceto)
   const izq=[],der=[],izq2=[];
   for(let i=0;i<=10;i++){const t=i/10;
@@ -790,10 +806,12 @@ const WILD={x:240,y:390};
    ============================================================ */
 const SUB=6, SPD=0.75, GRAV=0.34*SPD*SPD, MAXV=24*SPD;
 const F={
-  // len 72: con el reposo a 0.52 rad las puntas se tocan en el centro, sin hueco;
-  // con 62 o menos quedaba sitio para que la bola (d=16) se colase entre ellas
-  L:{x:168,y:694,len:72,rest:0.52,up:-0.44,a:0.52,w:0,press:false},
-  R:{x:312,y:694,len:72,rest:Math.PI-0.52,up:Math.PI+0.44,a:Math.PI-0.52,w:0,press:false}
+  // len 72 y ejes en 159.5 y 320.5: con el reposo a 0.52 rad queda un hueco libre de 17 px
+  // entre las puntas, 1 px más que la bola (d=16): si no se pulsa ningún flipper, la bola
+  // que cae por el centro se cuela entre ellas.
+  // Las paredes de todas las mesas acaban en estos mismos ejes
+  L:{x:159.5,y:694,len:72,rest:0.52,up:-0.44,a:0.52,w:0,press:false},
+  R:{x:320.5,y:694,len:72,rest:Math.PI-0.52,up:Math.PI+0.44,a:Math.PI-0.52,w:0,press:false}
 };
 const ball={x:447,y:668,vx:0,vy:0,r:8,rot:0,state:'ready',trail:[],idle:0,lane:0};
 let G=null;
@@ -1318,8 +1336,8 @@ const MEW_CH=[];
   const techo=[];
   for(let a=180;a>=0;a-=5)techo.push([240+MEW_R*Math.cos(a*RAD),MEW_CY-MEW_R*Math.sin(a*RAD)]);
   MEW_CH.push(techo);
-  MEW_CH.push([[16,MEW_CY],[16,588],[86,650],[168,694]]);
-  MEW_CH.push([[464,MEW_CY],[464,588],[394,650],[312,694]]);
+  MEW_CH.push([[16,MEW_CY],[16,588],[86,650],[159.5,694]]);
+  MEW_CH.push([[464,MEW_CY],[464,588],[394,650],[320.5,694]]);
 })();
 const MEW_SLINGS=[{a:[64,566],b:[118,616]},{a:[384,574],b:[346,620]}];
 const TANQUE={x:240,y:344,w:134,h:126};
@@ -1561,8 +1579,8 @@ const PISTA_CH=[];
   const techo=[];
   for(let a=180;a>=0;a-=5)techo.push([240+PISTA_R*Math.cos(a*RAD),PISTA_CY-PISTA_R*Math.sin(a*RAD)]);
   PISTA_CH.push(techo);
-  PISTA_CH.push([[16,PISTA_CY],[16,588],[86,650],[168,694]]);
-  PISTA_CH.push([[464,PISTA_CY],[464,588],[394,650],[312,694]]);
+  PISTA_CH.push([[16,PISTA_CY],[16,588],[86,650],[159.5,694]]);
+  PISTA_CH.push([[464,PISTA_CY],[464,588],[394,650],[320.5,694]]);
 })();
 const PISTA_SLINGS=[{a:[64,566],b:[118,616]},{a:[384,574],b:[346,620]}];
 // los cinco carriles van en la mitad ancha de la mesa, para que se cruce
@@ -1720,7 +1738,7 @@ function fondoPista(t){
 function perimetroPista(paso){
   const per=[];
   for(let a=180;a>=0;a-=(paso||6))per.push([240+PISTA_R*Math.cos(a*RAD),PISTA_CY-PISTA_R*Math.sin(a*RAD)]);
-  per.push([464,588],[394,650],[312,694],[240,760],[168,694],[86,650],[16,588]);
+  per.push([464,588],[394,650],[320.5,694],[240,760],[159.5,694],[86,650],[16,588]);
   return per;
 }
 function tableroPista(t){
@@ -1992,7 +2010,7 @@ function fondoLab(t){
 function tableroMew(t){
   const per=[];
   for(let a=180;a>=0;a-=6)per.push([240+MEW_R*Math.cos(a*RAD),MEW_CY-MEW_R*Math.sin(a*RAD)]);
-  per.push([464,588],[394,650],[312,694],[240,760],[168,694],[86,650],[16,588]);
+  per.push([464,588],[394,650],[320.5,694],[240,760],[159.5,694],[86,650],[16,588]);
   g.save();
   pathChain(per);g.closePath();
   const fill=g.createLinearGradient(0,PY(MEW_TECHO),0,PY(760));
@@ -2802,11 +2820,11 @@ const BOSQUE_CH=[],BOSQUE_PINTA=[];
   const derecha=[[464,258],[464,700],[430,700]];
   const guia=[];for(let a=105;a>=-8;a-=5)guia.push([240+186*Math.cos(a*RAD),260-186*Math.sin(a*RAD)]);
   guia.push([430,300],[430,700]);
-  const bajaDer=[[430,588],[394,650],[312,694]];
-  const izquierda=[[16,344],[16,588],[86,650],[168,694]];
+  const bajaDer=[[430,588],[394,650],[320.5,694]];
+  const izquierda=[[16,344],[16,588],[86,650],[159.5,694]];
   BOSQUE_CH.push(domo,domoIzq,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,DRA_PARED,TRONCOS[0],TRONCOS[1]);
   // la pared izquierda se pinta como roca hasta y=470; de ahí abajo, muro normal
-  BOSQUE_PINTA.push(domo,domoIzq,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[168,694]]);
+  BOSQUE_PINTA.push(domo,domoIzq,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[159.5,694]]);
 })();
 // la cascada cae sobre una poza y sigue en arroyo hasta el estanque
 const POZA={x:378,y:170,rx:22,ry:12};
@@ -3416,7 +3434,7 @@ function mata(x,y,w,sem){
 function perimetroBosque(){
   const per=[];
   for(let a=180;a>=0;a-=6)per.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
-  per.push([464,258],[464,700],[430,700],[312,694],[240,760],[168,694],[86,650],[16,588]);
+  per.push([464,258],[464,700],[430,700],[320.5,694],[240,760],[159.5,694],[86,650],[16,588]);
   return per.concat([[16,258]]);
 }
 function seta(x,y,k){
@@ -4146,7 +4164,7 @@ function tablero(t){
   // superficie: contorno exterior proyectado y relleno con degradado
   const per=[];
   for(let a=180;a>=0;a-=6)per.push([240+224*Math.cos(a*RAD),260-224*Math.sin(a*RAD)]);
-  per.push([464,258],[464,700],[430,700],[312,694],[240,760],[168,694],[86,650],[16,588],[16,258]);
+  per.push([464,258],[464,700],[430,700],[320.5,694],[240,760],[159.5,694],[86,650],[16,588],[16,258]);
   g.save();
   pathChain(per);g.closePath();
   const fill=g.createLinearGradient(0,PY(0),0,PY(760));
@@ -4504,7 +4522,7 @@ function fillDex(grid){
   grid.innerHTML='';
   if(!G.order.length){
     const p=document.createElement('p');p.className='empty';
-    p.textContent='Todavía no has registrado ninguna especie. Golpea a Bunneary (playa) o a Spinda (bosque) para llamar a un pokémon salvaje.';
+    p.textContent='Todavía no has registrado ninguna especie. Golpea a Bunneary (playa) o a Spinda (montaña) para llamar a un pokémon salvaje.';
     grid.appendChild(p);return;
   }
   G.order.forEach(k=>{
@@ -4598,7 +4616,7 @@ $('btnMenu').onclick=()=>{$('over').classList.add('hidden');$('dex').classList.a
   $('menu').classList.remove('hidden');G.state='menu';G.paused=false;};
 $('dexn').onclick=openDex;
 
-function loop(){update();drawTable();requestAnimationFrame(loop);}
+function loop(){update();drawTable();musicaPaso();requestAnimationFrame(loop);}
 updateHUD();loop();
 })();
 

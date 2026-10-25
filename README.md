@@ -1,6 +1,6 @@
 # Pinball Alola
 
-Un pinball de dos mesas ambientado en Alola (la playa al atardecer y el bosque de la cascada),
+Un pinball de dos mesas ambientado en Alola (la playa al atardecer y la montaña de la cascada),
 escrito en canvas 2D **sin dependencias**:
 sin motor de físicas, sin framework y sin build. Los sprites son GIF animados que el
 juego descodifica por su cuenta (decodificador LZW propio, incluido en `juego.js`).
@@ -32,7 +32,8 @@ npm run start:node
 | `styles.css` | Todo el estilo, con la paleta en variables CSS |
 | `juego.js` | Físicas, render, pokédex y el descodificador de GIF |
 | `assets/sprites/` | Los 43 GIF de la playa y los bonus |
-| `assets/sprites/segundo tablero/` | Los GIF del bosque |
+| `assets/sprites/segundo tablero/` | Los GIF de la montaña |
+| `assets/music/` | La música de fondo: `tablero.mp3` en las mesas y `bonus.mp3` en los bonus |
 
 ## Los sprites
 
@@ -44,7 +45,7 @@ const RUTA_SPRITES='assets/sprites/';
 for(const k in SPRITES_EXTERNOS) if(!SPRITES_EXTERNOS[k]) SPRITES_EXTERNOS[k]=RUTA_SPRITES+k+'.gif';
 ```
 
-Los del bosque viven en `assets/sprites/segundo tablero/` y tienen la ruta escrita a mano
+Los de la montaña viven en `assets/sprites/segundo tablero/` y tienen la ruta escrita a mano
 justo debajo (`RUTA_BOSQUE`). Varios traen mucho lienzo vacío alrededor del dibujo, así que
 los que están en `RECORTAR` se recortan al cargarlos.
 
@@ -70,7 +71,7 @@ Flippers con las flechas izquierda y derecha, lanzas la bola con espacio. Tienes
 La mesa se elige en el menú de inicio. Los capturables van entrando en la pokédex según
 los golpeas; Mew no entra en el sorteo y solo se consigue en el bonus del laboratorio secreto.
 
-En el **bosque**, cada vez que cuelas la bola en la cueva sale Venomoth; al golpearlo
+En la **montaña**, cada vez que cuelas la bola en la cueva sale Venomoth; al golpearlo
 poliniza la pradera y brotan flores (rojas: Bounsweet x2; con las azules, x3). La tercera
 visita saca a Spinda, que abre el modo captura. Al acabar la captura las flores se marchitan
 y se vuelve a empezar. El detalle de las dos mesas está en «Ver información», dentro del juego.
