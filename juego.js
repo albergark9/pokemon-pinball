@@ -47,11 +47,16 @@ Object.assign(SPRITES_EXTERNOS,{
   'dragonite-decoracion':RUTA_BOSQUE+'dragonite-decoracion.gif',
   'politoed-decoracion':RUTA_BOSQUE+'politoed-decoracion.gif',
   'leafeon-decoracion':RUTA_BOSQUE+'leafeon-decoracion.gif',
-  'leafeon-decoracion-2':RUTA_BOSQUE+'leafeon-decoracion-2.gif'
+  'leafeon-decoracion-2':RUTA_BOSQUE+'leafeon-decoracion-2.gif',
+  // bonus de la montaña: la manada de Mightyena
+  'mightyena-1':RUTA_BOSQUE+'mightyena-pokemon.gif',
+  'mightyena-2':RUTA_BOSQUE+'mightyenapokemon-mightyena.gif',
+  'mightyena-aulla':RUTA_BOSQUE+'mightyena-pokemon-mightyena.gif'
 });
 // estos gifs traen mucho lienzo vacío alrededor: se recortan al cargarlos
 const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-decoracion','spinda-decoracion',
-  'dragonite-decoracion','politoed-decoracion','leafeon-decoracion','leafeon-decoracion-2']);
+  'dragonite-decoracion','politoed-decoracion','leafeon-decoracion','leafeon-decoracion-2',
+  'mightyena-1','mightyena-2','mightyena-aulla']);
 const CAPTURABLES=['doduo','dragonair','arcanine','noibat','garchomp','tyrunt','skiddo','combusken',
   'braixen','delphox','fennekin','torracat','glaceon','drapion','lucario','venusaur','eevee','lurantis',
   'pichu','noivern','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
@@ -263,6 +268,13 @@ Reproductor.prototype.avanzar=function(ms){
     }}};
 Reproductor.prototype.lienzo=function(){return this.f[Math.min(this.i,this.f.length-1)].lienzo;};
 Reproductor.prototype.enAccion=function(){return !!this.one;};
+/* el fotograma que tocaría a los ms dados desde el principio del gif, sin mover el
+   reproductor: así varios actores pueden compartir un gif cada uno a su ritmo */
+Reproductor.prototype.fotograma=function(ms){
+  if(!this.total)this.total=this.f.reduce((a,f)=>a+f.delay,0);
+  let t=((ms%this.total)+this.total)%this.total;
+  for(const f of this.f){if(t<f.delay)return f.lienzo;t-=f.delay;}
+  return this.f[0].lienzo;};
 
 const GIFS={};
 function usarGif(k,buffer){
@@ -504,7 +516,7 @@ const MUSICA={tablero:new Audio('assets/music/tablero.mp3'),bonus:new Audio('ass
 for(const k in MUSICA){MUSICA[k].loop=true;MUSICA[k].volume=0.22;}
 function musicaPaso(){
   const quiere=sound&&G.state==='play'&&!G.paused
-    ?(G.escena==='mew'||G.escena==='pista'?'bonus':'tablero'):null;
+    ?(G.escena==='mew'||G.escena==='pista'||G.escena==='manada'?'bonus':'tablero'):null;
   for(const k in MUSICA){
     const a=MUSICA[k];
     if(k===quiere){
@@ -822,7 +834,7 @@ function estadoNuevo(){return {state:'menu',score:0,balls:3,mult:1,dex:new Set()
   fen:{boton:false,llama:0,cd:0},star:{boton:false,giro:0,cd:0},fenGhost:0,
   em:{fase:null,t:0,x:0,y:0,cd:0},capAnim:null,bunCd:0,chanFuego:0,
   saver:0,charge:0,charging:false,paused:false,tick:0,msg:'',msgT:0,snor:0,snorCd:0,
-  escena:'alola',hoyo:0,hoyoRetardo:0,mew:null,pista:null,tragado:null,bonusN:0,
+  escena:'alola',hoyo:0,hoyoRetardo:0,mew:null,pista:null,manada:null,tragado:null,bonusN:0,
   capturasBonus:0,mewHuido:false,mewCapturado:false,mewVisitas:0,flechas:0,
   orbita:0,orbitaT:0,bola:0,bolaFx:0,bolaT:0,vueltas:0,valla:true,vallaFx:0,vallaPend:false,
   mesa:'alola',bosque:null};}
@@ -933,12 +945,14 @@ function physics(){
     ball.vx*=0.99985;ball.vy*=0.99985;
   }
   ball.rot+=ball.vx*0.11;
-  // agujero de la pokébola: absorbe la bola y abre el bonus de Mew
-  if(G.hoyo>0&&ball.state==='play'){
-    const d=Math.hypot(ball.x-HOYO.x,ball.y-HOYO.y);
-    if(d<62){ball.vx+=(HOYO.x-ball.x)*0.007;ball.vy+=(HOYO.y-ball.y)*0.007;}
-    if(d<30)iniciaTragado();
-  }
+  absorbeHoyo();
+}
+/* agujero de la pokébola: absorbe la bola y abre el bonus */
+function absorbeHoyo(){
+  if(G.hoyo<=0||ball.state!=='play')return;
+  const d=Math.hypot(ball.x-HOYO.x,ball.y-HOYO.y);
+  if(d<62){ball.vx+=(HOYO.x-ball.x)*0.007;ball.vy+=(HOYO.y-ball.y)*0.007;}
+  if(d<30)iniciaTragado();
 }
 function golpeSnorlax(){
   if(G.snorCd>0)return;
@@ -1207,8 +1221,10 @@ function capturaPaso(){
     G.dex.add(a.sp.k);G.order.push(a.sp.k);
     G.mult=Math.min(6,G.mult+1);
     G.capturasBonus++;
-    // la pokébola del bonus solo existe en la playa
-    if(G.escena==='alola'&&G.capturasBonus>=3&&!G.mewCapturado&&G.hoyo<=0&&G.hoyoRetardo<=0){
+    // la pokébola del bonus: en la playa lleva a la pista o a Mew (hasta capturarlo) y en
+    // la montaña, a la manada de Mightyena
+    const hayBonus=G.escena==='bosque'||(G.escena==='alola'&&!G.mewCapturado);
+    if(hayBonus&&G.capturasBonus>=3&&G.hoyo<=0&&G.hoyoRetardo<=0){
       G.hoyoRetardo=300;say('La mesa empieza a vibrar…',150);}
     score(15000,a.x,a.y-50);
     say('¡'+a.sp.n+' capturado!'+(G.escena==='bosque'?' · las flores se marchitan':''),200);
@@ -1254,7 +1270,7 @@ function gameOver(){
 }
 function startGame(practica){
   G=estadoNuevo();G.state='play';
-  if(practica==='bosque'){G.mesa=G.escena='bosque';G.bosque=bosqueNuevo();}
+  if(practica==='bosque'||practica==='manada'){G.mesa=G.escena='bosque';G.bosque=bosqueNuevo();}
   KOFFINGS.forEach(k=>k.lit=0);BOUNSWEETS.forEach(b=>b.lit=0);
   fx.length=0;texts.length=0;
   $('menu').classList.add('hidden');$('over').classList.add('hidden');
@@ -1263,6 +1279,7 @@ function startGame(practica){
   // práctica: directo al nivel de bonus elegido, sin pasar por Alola
   if(practica==='mew')entrarMew();
   else if(practica==='pista')entrarPista();
+  else if(practica==='manada')entrarManada();
 }
 let msPrevio=0;
 function update(){
@@ -1291,6 +1308,7 @@ function update(){
   if(G.state!=='play'||G.paused)return;
   if(G.escena==='mew'){updateMew();updateHUD();return;}
   if(G.escena==='pista'){updatePista();updateHUD();return;}
+  if(G.escena==='manada'){updateManada();updateHUD();return;}
   if(G.escena==='bosque'){updateBosque();updateHUD();return;}
   if(G.tragado){tragadoPaso();updateHUD();return;}
   pasoOrbita();if(G.bolaFx>0)G.bolaFx--;
@@ -1395,11 +1413,12 @@ function tragadoPaso(){
 /* Los niveles de bonus se alternan: la pista de atletismo va antes del primer
    laboratorio de Mew y otra vez entre el primero y el segundo. */
 function entrarBonus(){
+  if(G.mesa==='bosque'){entrarManada();return;}   // la montaña tiene su propio bonus
   if(G.bonusN%2===0)entrarPista();else entrarMew();
   G.bonusN++;
 }
 function entrarMew(){
-  G.escena='mew';G.mew=bonusNuevo();G.pista=null;G.hoyo=0;G.hoyoRetardo=0;
+  G.escena='mew';G.mew=bonusNuevo();G.pista=null;G.manada=null;G.hoyo=0;G.hoyoRetardo=0;
   G.mewVisitas++;
   G.mode=null;G.wild=null;G.capAnim=null;G.em.fase=null;G.em.cd=0;
   G.fen={boton:false,llama:0,cd:0};G.star={boton:false,giro:0,cd:0};G.fenGhost=0;
@@ -1417,10 +1436,10 @@ function mewHuye(premio){
   m.vhuida=(m.x+90)/120;                       // llega al borde izquierdo en 2 s
 }
 function salirBonus(){
-  G.escena='alola';G.mew=null;G.pista=null;
+  G.escena=G.mesa;G.mew=null;G.pista=null;G.manada=null;   // de vuelta a la mesa de la que se salió
   G.capturasBonus=0;                 // hay que capturar otros 3 para volver
   newBall(true);
-  say('De vuelta a Alola',150);
+  say(G.mesa==='bosque'?'De vuelta a la montaña':'De vuelta a Alola',150);
 }
 function golpeTanque(x,y){
   const m=G.mew;if(m.cdT>0||m.fase!=='tanque')return;m.cdT=14;
@@ -1600,7 +1619,7 @@ function pistaNuevo(){return{fase:'entra',t:0,tiempo:60*60,golpes:0,premio:0,
   sirve:0,cdSpawn:0,corredores:[]};}
 
 function entrarPista(){
-  G.escena='pista';G.pista=pistaNuevo();G.mew=null;G.hoyo=0;G.hoyoRetardo=0;
+  G.escena='pista';G.pista=pistaNuevo();G.mew=null;G.manada=null;G.hoyo=0;G.hoyoRetardo=0;
   G.mode=null;G.wild=null;G.capAnim=null;G.em.fase=null;G.em.cd=0;
   G.fen={boton:false,llama:0,cd:0};G.star={boton:false,giro:0,cd:0};G.fenGhost=0;
   ball.state='held';ball.y=820;ball.trail.length=0;fx.length=0;
@@ -1892,6 +1911,300 @@ function hudPista(t){
   }
   g.fillStyle='rgba(255,255,255,.14)';g.fillRect(114,60,252,3);
   g.fillStyle=seg<=10?'#ff8a6b':'#ffd27a';g.fillRect(114,60,252*clamp(m.tiempo/(60*60),0,1),3);
+  g.restore();
+}
+
+/* ============================================================
+   BONUS · LA MANADA DE MIGHTYENA (montaña)
+   Se entra por la pokébola del centro de la montaña. Seis Mightyena
+   esperan en la noche, repartidos al azar; la mitad tiene una roca
+   delante y no se les puede dar de frente. Cada 10 s aúllan todos y la
+   mesa se queda a oscuras salvo un círculo de luz alrededor de la bola,
+   que crece con cada Mightyena eliminado.
+   ============================================================ */
+const MANADA_CH=MEW_CH, MANADA_SLINGS=MEW_SLINGS;   // la misma cúpula que los otros bonus
+const MANADA_N=6, MANADA_TAPADOS=3;
+const MANADA_TIEMPO=75*60, MANADA_PREMIO=750000, MANADA_GOLPE=20000;
+const MY_RAD=20, MY_ALTO=66;          // radio de choque y altura del dibujo
+const AULLIDO_CADA=600, AULLIDO_T=90, OSCURO_T=300;   // cada 10 s: 1,5 s de aullido y 5 s a oscuras
+const LUZ_0=50, LUZ_PASO=16;          // radio de luz de la bola y lo que crece por eliminado
+const MANADA_ARBUSTOS=6, ARB_RAD=20;
+
+/* el saque sube pegado a la pared derecha, rodea la cúpula y baja por la izquierda:
+   ese carril queda siempre libre. Cierto si un círculo de radio ext en (x,y) deja
+   sitio de sobra a la bola entre él y la pared */
+const CARRIL_LIBRE=40;    // la bola (16) más medio muro (7) y holgura
+function fueraDelCarril(x,y,ext){
+  const aPared=y<MEW_CY?MEW_R-Math.hypot(x-240,y-MEW_CY):Math.min(x-16,464-x);
+  return aPared-ext>=CARRIL_LIBRE;
+}
+function manadaNueva(){
+  // posiciones al azar dentro de la cúpula, separadas, lejos de los tirachinas y fuera
+  // del carril del saque (el Mightyena entero: dibujo, choque y su roca)
+  const ms=[];
+  for(let n=0;n<3000&&ms.length<MANADA_N;n++){
+    const x=74+Math.random()*332, y=250+Math.random()*250, roca=ms.length<MANADA_TAPADOS;
+    if(!fueraDelCarril(x,y-12,36))continue;
+    if(roca&&!fueraDelCarril(x,y+30,32))continue;
+    if(ms.some(e=>Math.hypot(e.x-x,(e.y-y)*1.3)<88))continue;
+    ms.push({x,y});
+  }
+  // mitad con un gif de reposo y mitad con el otro, repartidos al azar
+  const gifs=ms.map((e,i)=>i%2?'mightyena-1':'mightyena-2').sort(()=>Math.random()-0.5);
+  ms.forEach((e,i)=>{
+    e.roca=i<MANADA_TAPADOS;               // las posiciones ya son al azar: los primeros llevan roca
+                                           // (y se han colocado contando con ella)
+    e.gif=gifs[i];
+    e.desfase=Math.random()*6000;          // cada uno va por un punto distinto de su gif
+    e.espejo=e.x>240;                      // los gifs miran a la derecha: todos miran al centro
+    e.ko=0;e.sem=1+Math.floor(Math.random()*90);
+  });
+  // arbustos al azar entre la manada: tapan tiros y esconden a los Mightyena de detrás
+  const arb=[];
+  for(let n=0;n<3000&&arb.length<MANADA_ARBUSTOS;n++){
+    const x=70+Math.random()*340, y=235+Math.random()*290;
+    if(!fueraDelCarril(x,y-10,30))continue;
+    if(ms.some(e=>Math.hypot(e.x-x,(e.y+(e.roca?14:0)-y)*1.2)<(e.roca?66:56)))continue;
+    if(arb.some(b=>Math.hypot(b.x-x,b.y-y)<64))continue;
+    arb.push({x,y,sem:1+Math.floor(Math.random()*90)});
+  }
+  return{fase:'entra',t:0,tiempo:MANADA_TIEMPO,golpes:0,premio:0,sirve:0,
+    // se entra ya de noche: la primera oscuridad empieza cerrada del todo y el reloj del
+    // aullido arranca con el saque
+    ms,arb,cdAull:AULLIDO_CADA,aulla:0,oscuro:OSCURO_T-20};
+}
+function entrarManada(){
+  G.escena='manada';G.manada=manadaNueva();G.mew=null;G.pista=null;G.hoyo=0;G.hoyoRetardo=0;
+  G.mode=null;G.wild=null;G.capAnim=null;
+  ball.state='held';ball.y=820;ball.trail.length=0;fx.length=0;
+  say('Noche en la montaña · elimina a la manada de Mightyena',240);
+  chime([392,466,587,784],90);shake=Math.max(shake,10);
+}
+function sirveManada(){
+  ball.x=438;ball.y=548;ball.vx=-1.2;ball.vy=-19.5*SPD;
+  ball.state='play';ball.trail.length=0;ball.idle=0;
+  beep(360,.12,'square',.05);
+}
+const luzManada=()=>LUZ_0+G.manada.golpes*LUZ_PASO;
+function golpeMightyena(e){
+  const m=G.manada;if(e.ko||m.fase!=='caza')return;
+  e.ko=1;m.golpes++;shake=Math.max(shake,8);
+  score(MANADA_GOLPE,e.x,e.y-34);
+  addFx(e.x,e.y,18,'#4a4060',4.5);addFx(e.x,e.y,8,'#ff5a6a',3.5);
+  barrido(520,140,0.35,'sawtooth',0.05);
+  if(m.golpes>=m.ms.length){
+    m.premio=MANADA_PREMIO;m.fase='letrero';m.t=0;m.oscuro=0;m.aulla=0;
+    G.score+=m.premio;updateHUD();
+    say('¡La manada huye de la montaña!',220);
+    chime([523,659,784,1046,1319],90);shake=Math.max(shake,14);
+    addFx(240,380,44,'#ffd27a',7);
+  } else say('¡Mightyena fuera! '+m.golpes+'/'+m.ms.length+' · la luz crece',90);
+}
+function aullido(){
+  // un aullido largo que sube y baja, y otro algo después: la manada entera
+  barrido(330,620,0.7,'sawtooth',0.035);
+  setTimeout(()=>barrido(620,300,0.8,'sawtooth',0.03),650);
+  setTimeout(()=>barrido(380,700,0.9,'triangle',0.03),300);
+}
+function physicsManada(){
+  const m=G.manada,f=1/SUB;
+  for(let s=0;s<SUB;s++){
+    [F.L,F.R].forEach(fl=>{const tgt=fl.press?fl.up:fl.rest,prev=fl.a;
+      fl.a+=clamp(tgt-fl.a,-0.5*SPD/SUB,0.5*SPD/SUB);fl.w=(fl.a-prev)*SUB;});
+    ball.vy+=GRAV*f;
+    ball.x+=ball.vx*f;ball.y+=ball.vy*f;
+    for(const ch of MANADA_CH)
+      for(let i=0;i<ch.length-1;i++)collide(ch[i][0],ch[i][1],ch[i+1][0],ch[i+1][1],7,0.42,0,null);
+    for(const sl of MANADA_SLINGS)
+      collide(sl.a[0],sl.a[1],sl.b[0],sl.b[1],9,0.35,12.4*SPD,(x,y)=>{score(120);addFx(x,y,6,'#ffc0dc',3);beep(520,.05,'square',.04);shake=Math.max(shake,3);});
+    for(const e of m.ms){
+      // la roca de delante tapa al Mightyena desde abajo: hay que darle por los lados o por detrás
+      if(e.roca)collide(e.x-18,e.y+28,e.x+18,e.y+28,12,0.45,0,(x,y)=>{if(G.tick%6===0)beep(140,.05,'square',.03);});
+      if(!e.ko&&m.fase==='caza')collide(e.x,e.y,e.x,e.y,MY_RAD,0.5,5*SPD,()=>golpeMightyena(e));
+    }
+    for(const b of m.arb)collide(b.x,b.y-8,b.x,b.y-8,ARB_RAD,0.4,0,(x,y)=>{if(G.tick%6===0)beep(260,.04,'triangle',.025);});
+    flipperHit(F.L);flipperHit(F.R);
+    const sp=Math.hypot(ball.vx,ball.vy);
+    if(sp>MAXV){ball.vx*=MAXV/sp;ball.vy*=MAXV/sp;}
+    ball.vx*=0.99985;ball.vy*=0.99985;
+  }
+  ball.rot+=ball.vx*0.11;
+}
+function updateManada(){
+  const m=G.manada;m.t++;
+  m.ms.forEach(e=>{if(e.ko&&e.ko<60){e.ko++;if(e.ko%5===0)addFx(e.x,e.y+10,2,'#3a3450',2);}});
+  if(m.fase==='entra'){
+    if(m.t>50){m.fase='caza';m.t=0;sirveManada();
+      say('¡Cada 10 s aúllan y se hace de noche! Elimínalos a todos',220);}
+    return;
+  }
+  if(m.fase==='letrero'||m.fase==='fallo'){
+    if(m.oscuro>0)m.oscuro--;
+    if(m.t>170)salirBonus();
+    return;
+  }
+  if(--m.tiempo<=0){
+    say('Se acabó el tiempo · bonus fallido',200);beep(200,.4,'sawtooth',.05);
+    m.premio=0;m.fase='fallo';m.t=0;m.aulla=0;shake=Math.max(shake,8);
+    return;
+  }
+  // el aullido de la manada: primero aúllan y, al terminar, la mesa queda a oscuras
+  if(m.aulla>0){if(--m.aulla===0)m.oscuro=OSCURO_T;}
+  else if(m.oscuro>0)m.oscuro--;
+  if(--m.cdAull<=0){
+    m.cdAull=AULLIDO_CADA;m.aulla=AULLIDO_T;
+    const r=GIFS['mightyena-aulla'];if(r){r.i=0;r.acc=0;}
+    say('¡La manada aúlla! Se hace de noche…',140);aullido();shake=Math.max(shake,5);
+  }
+  // bola
+  if(ball.state==='play'){
+    physicsManada();
+    ball.trail.push({x:ball.x,y:ball.y});if(ball.trail.length>12)ball.trail.shift();
+    const spd=Math.hypot(ball.vx,ball.vy);
+    if(spd<0.7*SPD){if(++ball.idle>150){ball.vx+=(Math.random()-.5)*6*SPD;ball.vy-=3*SPD;ball.idle=0;shake=Math.max(shake,5);}}
+    else ball.idle=0;
+    if(ball.y>745){ball.state='held';ball.y=820;m.sirve=120;
+      say('Bola perdida · vuelve en 2 s',130);beep(220,.25,'sawtooth',.05);}
+  } else if(m.sirve>0&&--m.sirve<=0)sirveManada();
+}
+
+/* ---------------- dibujo de la manada ---------------- */
+/* noche en la montaña: cielo estrellado, luna llena y siluetas de picos y pinos */
+function fondoManada(){g.drawImage(capaFija('fondoManada',pintaFondoManada),0,0);}
+function pintaFondoManada(){
+  const cielo=g.createLinearGradient(0,0,0,H);
+  cielo.addColorStop(0,'#070b1e');cielo.addColorStop(.35,'#121a3a');cielo.addColorStop(1,'#050914');
+  g.fillStyle=cielo;g.fillRect(0,0,W,H);
+  const az=v=>{const q=Math.sin(v*12.9898)*43758.5453;return q-Math.floor(q);};
+  for(let i=0;i<70;i++){
+    g.fillStyle='rgba(235,240,255,'+(0.25+az(i+3)*0.6)+')';
+    g.beginPath();g.arc(az(i+11)*W,az(i+29)*170,0.6+az(i+47)*1.1,0,7);g.fill();
+  }
+  // luna llena con su halo
+  const halo=g.createRadialGradient(386,64,10,386,64,90);
+  halo.addColorStop(0,'rgba(255,248,214,.35)');halo.addColorStop(1,'rgba(255,248,214,0)');
+  g.fillStyle=halo;g.fillRect(290,0,190,170);
+  g.fillStyle='#f6efcf';g.beginPath();g.arc(386,64,27,0,7);g.fill();
+  g.fillStyle='rgba(190,180,150,.35)';
+  [[378,56,6],[396,72,4.5],[392,52,3],[374,74,3.5]].forEach(c=>{g.beginPath();g.arc(c[0],c[1],c[2],0,7);g.fill();});
+  // picos lejanos
+  g.fillStyle='#161d3a';
+  g.beginPath();g.moveTo(0,190);g.lineTo(60,110);g.lineTo(120,170);g.lineTo(190,96);g.lineTo(260,160);
+  g.lineTo(330,120);g.lineTo(400,180);g.lineTo(480,130);g.lineTo(480,260);g.lineTo(0,260);g.closePath();g.fill();
+  g.fillStyle='rgba(220,230,255,.25)';
+  [[60,110],[190,96],[330,120]].forEach(c=>{g.beginPath();g.moveTo(c[0],c[1]);g.lineTo(c[0]-13,c[1]+16);
+    g.lineTo(c[0]-3,c[1]+12);g.lineTo(c[0]+5,c[1]+17);g.lineTo(c[0]+13,c[1]+14);g.closePath();g.fill();});
+  // pinos alrededor de la mesa
+  const pino=(x,y,h)=>{g.fillStyle='#0a1222';g.beginPath();
+    for(let k=0;k<3;k++){const yy=y-h*k*0.28;g.moveTo(x-h*0.32*(1-k*0.2),yy);g.lineTo(x,yy-h*0.45);g.lineTo(x+h*0.32*(1-k*0.2),yy);}
+    g.fill();g.fillRect(x-2,y,4,h*0.12);};
+  [[14,250,70],[40,232,56],[456,240,72],[430,226,50],[8,420,80],[472,400,76],[6,600,90],[474,590,84],
+   [30,720,70],[452,720,74]].forEach(p=>pino(p[0],p[1],p[2]));
+}
+function tableroManada(){
+  g.save();
+  pathChain(perimetroPista(6));g.closePath();
+  const fill=g.createLinearGradient(0,PY(MEW_TECHO),0,PY(760));
+  fill.addColorStop(0,'#14301f');fill.addColorStop(.5,'#1b3d26');fill.addColorStop(1,'#0d2015');
+  g.fillStyle=fill;g.fill();
+  g.save();g.clip();
+  // la luz de la luna entra desde arriba a la derecha
+  const lu=g.createRadialGradient(PX(330,260),PY(260),10,PX(330,260),PY(260),300);
+  lu.addColorStop(0,'rgba(200,215,255,.12)');lu.addColorStop(1,'rgba(200,215,255,0)');
+  g.fillStyle=lu;g.fillRect(0,0,W,H);
+  // matas de hierba
+  for(let i=0;i<90;i++){
+    const a=Math.sin(i*31.7)*43758.5453,b=Math.sin(i*5.9)*43758.5453;
+    const x=20+(a-Math.floor(a))*440,y=220+(b-Math.floor(b))*520,s=PS(y),X=PX(x,y),Y=PY(y);
+    g.strokeStyle=i%3?'rgba(120,170,110,.22)':'rgba(170,210,150,.18)';g.lineWidth=1.2;
+    g.beginPath();g.moveTo(X-3*s,Y);g.lineTo(X-4*s,Y-6*s);g.moveTo(X,Y);g.lineTo(X,Y-8*s);
+    g.moveTo(X+3*s,Y);g.lineTo(X+5*s,Y-6*s);g.stroke();
+  }
+  g.restore();g.restore();
+}
+/* un Mightyena: aullando (todos a la vez) o en reposo; al eliminarlo se funde en la sombra */
+function dMightyena(e,t){
+  const m=G.manada,k=m.aulla>0?'mightyena-aulla':e.gif,rep=GIFS[k];
+  const s=PS(e.y),X=PX(e.x,e.y),pie=PY(e.y)+22*s;
+  const u=e.ko?Math.min(1,e.ko/40):0;if(u>=1)return;
+  g.save();
+  // sombra (y, al eliminarlo, el charco de oscuridad en el que se hunde)
+  g.fillStyle='rgba(0,0,0,'+(0.32+u*0.3)+')';
+  g.beginPath();g.ellipse(X,pie,(20+u*10)*s,(6+u*3)*s,0,0,7);g.fill();
+  g.globalAlpha=1-u;
+  if(rep){
+    const h=MY_ALTO*s*(1-u*0.5),w=h*rep.W/rep.H;
+    g.imageSmoothingEnabled=false;
+    g.translate(X,0);if(e.espejo)g.scale(-1,1);
+    // aullando van todos a la vez; en reposo, cada uno por su punto del gif
+    const im=m.aulla>0?rep.lienzo():rep.fotograma(G.tick*1000/60+e.desfase);
+    g.drawImage(im,-w/2,pie-h,w,h);
+    if(e.ko&&e.ko<10){g.globalCompositeOperation='lighter';g.globalAlpha=0.5;
+      g.drawImage(im,-w/2,pie-h,w,h);}
+  } else {
+    // repuesto mientras no carguen los gifs: un lobo gris y negro
+    g.translate(X,pie);g.scale(s*(e.espejo?-1:1),s*(1-u*0.5));
+    g.fillStyle='#2b2b36';g.beginPath();g.ellipse(-2,-18,18,11,0,0,7);g.fill();
+    g.fillStyle='#8b8b98';g.beginPath();g.ellipse(14,-30,10,9,0,0,7);g.fill();
+    g.fillStyle='#2b2b36';g.fillRect(-14,-10,5,10);g.fillRect(8,-10,5,10);
+    g.fillStyle='#ff4a5a';g.beginPath();g.arc(18,-32,2,0,7);g.fill();
+  }
+  g.restore();
+}
+function dibujaManada(t){
+  fondoManada();
+  g.drawImage(capaMesa(),0,0);
+  const m=G.manada;if(!m)return;
+  // de atrás hacia delante, y cada roca justo después de su Mightyena: lo tapa por delante
+  // de atrás hacia delante: un arbusto por delante de un Mightyena lo tapa
+  const cosas=m.ms.map(e=>({y:e.y,e})).concat(m.arb.map(b=>({y:b.y-22,b})));
+  cosas.sort((a,b)=>a.y-b.y).forEach(c=>{
+    if(c.b){const b=c.b,s=PS(b.y);g.save();g.translate(PX(b.x,b.y),PY(b.y));g.scale(1,1.7);   // más alto que la mata de la montaña
+      mata(0,0,56*s,b.sem);g.restore();return;}
+    const e=c.e;dMightyena(e,t);
+    if(e.roca){const s=PS(e.y+30);piedra(PX(e.x,e.y+30),PY(e.y+30),31*s,18*s,e.sem,1);}
+  });
+}
+/* la noche del aullido: todo negro salvo un círculo de luz alrededor de la bola */
+function oscuridadManada(){
+  const m=G.manada;if(!m)return;
+  let a=0;
+  if(m.aulla>0)a=(1-m.aulla/AULLIDO_T)*0.5;                    // anochece mientras aúllan
+  else if(m.oscuro>0)a=m.oscuro>OSCURO_T-20?0.5+(OSCURO_T-m.oscuro)/20*0.44   // y se cierra del todo
+    :m.oscuro<45?0.94*m.oscuro/45:0.94;                       // al final vuelve la luz poco a poco
+  if(a<=0.01)return;
+  const enJuego=ball.state==='play';
+  const bx=enJuego?ball.x:438,by=enJuego?ball.y:548;
+  const s=PS(by),X=PX(bx,by),Y=PY(by),R=luzManada()*s;
+  const gr=g.createRadialGradient(X,Y,R*0.55,X,Y,R);
+  gr.addColorStop(0,'rgba(3,5,14,0)');gr.addColorStop(1,'rgba(3,5,14,'+a+')');
+  g.fillStyle=gr;g.fillRect(0,0,W,H);
+}
+function hudManada(t){
+  const m=G.manada;if(!m)return;
+  g.save();g.textAlign='center';
+  if(m.fase==='letrero'||m.fase==='fallo'){
+    dLetreroBonus(m,t,'PUNTOS','La manada sigue rondando la montaña');g.restore();return;}
+  g.fillStyle='rgba(6,10,26,.78)';roundRectPath(g,108,12,264,54,12);g.fill();
+  g.strokeStyle='rgba(200,210,255,.35)';g.lineWidth=1.5;
+  roundRectPath(g,108,12,264,54,12);g.stroke();
+  g.fillStyle='#c8d2ff';g.font='700 11px system-ui';
+  g.fillText('MONTAÑA DE NOCHE · LA MANADA',240,28);
+  const seg=Math.max(0,Math.ceil(m.tiempo/60));
+  g.fillStyle=seg<=10?'#ff8a6b':'#eaffff';g.font='800 16px system-ui';
+  g.textAlign='left';g.fillText(seg+' s',120,49);
+  // una marca por Mightyena: roja mientras siga en pie
+  const n=m.ms.length;
+  for(let i=0;i<n;i++){
+    const x=190+i*(170/Math.max(1,n-1));
+    g.beginPath();g.arc(x,44,6.2,0,7);
+    g.fillStyle=i<m.golpes?'#ffd27a':'rgba(255,80,90,.35)';g.fill();
+    g.strokeStyle=i<m.golpes?'rgba(255,244,210,.95)':'rgba(255,120,130,.5)';
+    g.lineWidth=1.3;g.stroke();
+  }
+  // la barra de tiempo
+  g.fillStyle='rgba(255,255,255,.14)';g.fillRect(114,60,252,3);
+  g.fillStyle=seg<=10?'#ff8a6b':'#c8d2ff';g.fillRect(114,60,252*clamp(m.tiempo/MANADA_TIEMPO,0,1),3);
   g.restore();
 }
 
@@ -3264,6 +3577,9 @@ function physicsBosque(){
 }
 function updateBosque(){
   const B=G.bosque;
+  if(G.hoyoRetardo>0&&--G.hoyoRetardo<=0)abreHoyo();
+  if(G.hoyo>0&&--G.hoyo<=0)say('La pokébola se cierra',110);
+  if(G.tragado){tragadoPaso();return;}
   BOUNSWEETS.forEach(b=>{if(b.lit)b.lit--;});
   if(G.saver>0)G.saver--;
   if(B.marchita>0&&--B.marchita<=0)B.flores=[];
@@ -3283,7 +3599,8 @@ function updateBosque(){
     if(G.charging&&!B.gancho)G.charge=Math.min(1,G.charge+0.022);
     ball.y=668+G.charge*22;
   } else if(ball.state==='play'){
-    physicsBosque();
+    physicsBosque();absorbeHoyo();
+    if(G.tragado)return;
     compruebaCueva();salidaCarril();compruebaDragonite();
     if(ball.state==='play'){
       ball.trail.push({x:ball.x,y:ball.y});if(ball.trail.length>12)ball.trail.shift();
@@ -4085,7 +4402,7 @@ function dibujaBosque(t){
   dAgua(t);dCascada(t);dPolitoed(t);
   dDragonite(t);dCueva(t);
   boton(LEAF.btn,G.bosque.leaf.boton,'#e8453a');dLeafeon(t);
-  dPradera(t);dFlores(t);
+  dPradera(t);dFlores(t);dHoyo(t);
   BOUNSWEETS.forEach(b=>dBounsweet(b,t));
   dSpinda(t);dVenomoth(t);dPolen(t);
   if(G.capAnim)drawCaptura(t);
@@ -4412,6 +4729,7 @@ function drawTable(){
   if(shake>0.4)g.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   if(G.escena==='mew')dibujaMew(t);
   else if(G.escena==='pista')dibujaPista(t);
+  else if(G.escena==='manada')dibujaManada(t);
   else if(G.escena==='bosque')dibujaBosque(t);
   else dibujaAlola(t);
   dFlippers();
@@ -4449,6 +4767,7 @@ function capaMesa(){
   const prev=g;g=c.getContext('2d');
   if(k==='mew'){tableroMew(0);paredesDe(MEW_CH,MEW_SLINGS);}
   else if(k==='pista'){tableroPista(0);paredesDe(PISTA_CH,PISTA_SLINGS);}
+  else if(k==='manada'){tableroManada();paredesDe(MANADA_CH,MANADA_SLINGS,null,PAL_BOSQUE);}
   else if(k==='bosque'){tableroBosque(0);paredesDe(BOSQUE_PINTA,SLINGS_BOSQUE,null,PAL_BOSQUE);rocaCueva();dTroncos();}
   else{tablero(0);dCarril(0);dCarrilSnorlax(0);paredes();drawArbustos(0);}
   g=prev;
@@ -4585,6 +4904,7 @@ function dComun(t){
   fx.forEach(p=>{g.globalAlpha=p.life;g.fillStyle=p.color;
     g.beginPath();g.arc(PX(p.x,p.y),PY(p.y),p.size*PS(p.y),0,7);g.fill();});
   g.globalAlpha=1;
+  if(G.escena==='manada')oscuridadManada();   // los textos de puntos se siguen leyendo
   g.textAlign='center';g.font='700 15px "Avenir Next",system-ui,sans-serif';
   texts.forEach(tx=>{g.globalAlpha=Math.min(1,tx.life*1.6);g.fillStyle=tx.color;
     g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=3;
@@ -4593,6 +4913,7 @@ function dComun(t){
   g.globalAlpha=1;
   if(G.escena==='mew')hudMew(t);
   if(G.escena==='pista')hudPista(t);
+  if(G.escena==='manada')hudManada(t);
   if((G.escena==='alola'||G.escena==='bosque')&&G.saver>0&&ball.state==='play'){
     g.strokeStyle='rgba(120,255,220,'+(0.35+Math.sin(t/6)*0.2)+')';g.lineWidth=5;
     g.beginPath();g.moveTo(PX(180,745),PY(745));g.lineTo(PX(300,745),PY(745));g.stroke();
@@ -4715,6 +5036,7 @@ $('jugar').onclick=()=>startGame();
 $('jugarBosque').onclick=()=>startGame('bosque');
 $('practica').onclick=()=>startGame('mew');
 $('practicaPista').onclick=()=>startGame('pista');
+$('practicaManada').onclick=()=>startGame('manada');
 $('verInfo').onclick=()=>{$('menu').classList.add('hidden');$('info').classList.remove('hidden');};
 $('cerrarInfo').onclick=()=>{$('info').classList.add('hidden');$('menu').classList.remove('hidden');};
 // otra partida en la misma mesa
