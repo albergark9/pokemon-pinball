@@ -13,6 +13,12 @@ import sys
 
 
 class SinCache(http.server.SimpleHTTPRequestHandler):
+    # En Windows, respondiendo en HTTP/1.0 (lo de serie) el servidor cierra la conexión nada
+    # más escribir el fichero y el navegador perdía el final de los gifs grandes: se quedaba
+    # 19 s esperando y acababa en ERR_CONNECTION_RESET. Con HTTP/1.1 la conexión sigue
+    # abierta y el navegador sabe por Content-Length cuándo ha llegado todo
+    protocol_version = 'HTTP/1.1'
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')
         super().end_headers()
