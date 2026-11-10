@@ -45,11 +45,13 @@ Object.assign(SPRITES_EXTERNOS,{
   'venomoth-decoracion':RUTA_BOSQUE+'venomoth-decoración.gif',
   'spinda-decoracion':RUTA_BOSQUE+'spinda-decoracion.gif',
   'dragonite-decoracion':RUTA_BOSQUE+'dragonite-decoracion.gif',
-  'politoed-decoracion':RUTA_BOSQUE+'politoed-decoracion.gif'
+  'politoed-decoracion':RUTA_BOSQUE+'politoed-decoracion.gif',
+  'leafeon-decoracion':RUTA_BOSQUE+'leafeon-decoracion.gif',
+  'leafeon-decoracion-2':RUTA_BOSQUE+'leafeon-decoracion-2.gif'
 });
 // estos gifs traen mucho lienzo vacío alrededor: se recortan al cargarlos
 const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-decoracion','spinda-decoracion',
-  'dragonite-decoracion','politoed-decoracion']);
+  'dragonite-decoracion','politoed-decoracion','leafeon-decoracion','leafeon-decoracion-2']);
 const CAPTURABLES=['doduo','dragonair','arcanine','noibat','garchomp','tyrunt','skiddo','combusken',
   'braixen','delphox','fennekin','torracat','glaceon','drapion','lucario','venusaur','eevee','lurantis',
   'pichu','noivern','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
@@ -1020,6 +1022,7 @@ function ruidoFuego(){
   }catch(e){}
 }
 function llamaFennekin(){
+  if(G.escena==='bosque'){ataqueLeafeon();return;}
   if(!G.fen.boton||G.fen.llama>0||G.state!=='play')return;
   G.fen.llama=32;
   if(GIFS['fennekin-decoracion'])GIFS['fennekin-decoracion'].accion();
@@ -2794,6 +2797,22 @@ const DESVIO=[[123,69],[121.6,87.8],[103.6,82.3]];
 // La cúpula se abre entre 145,5° y 160,5° para la boca, que hace de embudo hacia el carril.
 // Es una sola pared: el lado de arriba,
 // la vuelta a la cámara y el lado de abajo de regreso a la cúpula.
+// Leafeon, sobre una repisa de la pared izquierda, debajo de la cueva y a la altura del
+// pokémon de captura. Como Fennekin en la playa: su botón está en la punta de la repisa
+// y, encendido, ← lanza su ataque. leafeon-decoracion-2 es su reposo y
+// leafeon-decoracion el ataque; los dos gifs miran a la izquierda y se pintan en espejo
+const LEAF={x:34,y:432,alto:22,btn:{x:80,y:465,r:10}};
+const REPISA_LEAF=[[16,456],[52,459],[80,474]];
+const LEAF_ATAQUE=110;          // frames del gif del ataque (1,83 s)
+const HOJAS_T=56,N_HOJAS=16;    // el remolino de hojas: duración y número de hojas
+const HOJAS_RECORRIDO=60,HOJAS_ALTO=1.3;   // avanza 60 px; su altura, respecto al primer diseño
+const HOJAS_TOQUE=13;           // distancia de una hoja a la bola para que la lance
+const HOJAS_ESPERA=30;          // el remolino sale medio segundo después de pulsar ←
+// en el gif del ataque Leafeon ocupa menos parte del lienzo (80 de 92 de alto, frente a 251
+// de 257 en el de reposo): se pinta un 12 % más grande para que los dos midan lo mismo
+const LEAF_ESCALA_ATAQUE=(251/257)*(92/80);
+// tirachinas de la montaña: los de la playa, 30 px más arriba
+const SLINGS_BOSQUE=SLINGS.map(sl=>({a:[sl.a[0],sl.a[1]-30],b:[sl.b[0],sl.b[1]-30]}));
 const DRAGONITE={x:-40,y:94,alcance:20};   // alcance: distancia a la que su cola golpea la bola
 // compuerta de un solo sentido en la boca (el tramo de cúpula que falta): para la bola
 // que rodea la mesa es pared, así que sigue de largo hacia la cueva; la que sube hacia
@@ -2822,9 +2841,9 @@ const BOSQUE_CH=[],BOSQUE_PINTA=[];
   guia.push([430,300],[430,700]);
   const bajaDer=[[430,588],[394,650],[320.5,694]];
   const izquierda=[[16,344],[16,588],[86,650],[159.5,694]];
-  BOSQUE_CH.push(domo,domoIzq,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,DRA_PARED,TRONCOS[0],TRONCOS[1]);
+  BOSQUE_CH.push(domo,domoIzq,derecha,guia,bajaDer,izquierda,CARRIL_EXT,CARRIL_INT,DESVIO,DRA_PARED,REPISA_LEAF,TRONCOS[0],TRONCOS[1]);
   // la pared izquierda se pinta como roca hasta y=470; de ahí abajo, muro normal
-  BOSQUE_PINTA.push(domo,domoIzq,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[159.5,694]]);
+  BOSQUE_PINTA.push(REPISA_LEAF,domo,domoIzq,derecha,guia,bajaDer,[[-10,366],[5.1,354.8],[16,344],[16,588],[86,650],[159.5,694]]);
 })();
 // la cascada cae sobre una poza y sigue en arroyo hasta el estanque
 const POZA={x:378,y:170,rx:22,ry:12};
@@ -2840,6 +2859,7 @@ const FLORES_POR_PASADA=14;
 
 function bosqueNuevo(){return{
   cueva:0,gancho:0,carga:0,expulsada:false,
+  leaf:{boton:false,cd:0,ataque:0,fantasma:0,hojas:0,espera:0,lanzo:false},   // botón, ataque y remolino de Leafeon
   rio:null,draGolpe:0,pol:nuevoPolitoed(),   // el viaje de la bola por el río y Politoed en el estanque
   lanzada:false,   // la bola acaba de salir de Machamp y aún no ha vuelto a la parte baja de la mesa
   estado:0,      // pasadas de polen completadas: con 2, la cueva ya no saca a Venomoth sino a Spinda
@@ -3041,6 +3061,43 @@ function pasoSpinda(){
   }
 }
 
+/* ---------------- Leafeon ---------------- */
+function ataqueLeafeon(){
+  const L=G.bosque.leaf;
+  if(!L.boton||L.ataque>0||G.state!=='play')return;
+  L.ataque=LEAF_ATAQUE;L.espera=HOJAS_ESPERA;L.hojas=0;L.lanzo=false;
+  const rep=GIFS['leafeon-decoracion'];if(rep){rep.i=0;rep.acc=0;}   // el ataque empieza desde el principio
+  barrido(900,300,0.35,'triangle',0.04);
+}
+/* posición de la hoja i del remolino en el frame h: x, y del suelo, z (profundidad del
+   giro) y visibilidad. La usan el dibujo y el choque con la bola */
+function posHoja(h,i){
+  const u=h/HOJAS_T,av=1-(1-u)*(1-u);                      // avanza deprisa y frena al final
+  const cx=LEAF.x+18+av*HOJAS_RECORRIDO,k=i/N_HOJAS,a=h*0.38+i*2.4;
+  const r=(6+u*16)*HOJAS_ALTO*(1-k*0.55);                  // radio del cono
+  return {x:cx-k*34*HOJAS_RECORRIDO/100,y:LEAF.y-10+Math.sin(a)*r*0.55,z:Math.cos(a)*r,r,a,
+          vis:Math.min(1,u*6)*Math.min(1,(1-u)*5)};         // aparece y se deshace
+}
+/* la primera hoja que toca la bola la lanza al centro de la mesa, donde aparece el
+   pokémon de captura (una vez por ataque) */
+function hojasTocan(){
+  const L=G.bosque.leaf;
+  if(!L.hojas||L.lanzo||ball.state!=='play')return;
+  for(let i=0;i<N_HOJAS;i++){
+    const q=posHoja(L.hojas,i);
+    if(q.vis<0.3)continue;
+    // la hoja se pinta levantada z*0.5 en pantalla: en el mundo, unos z*0.5 más arriba
+    if(Math.hypot(ball.x-q.x,ball.y-(q.y-q.z*0.5))>HOJAS_TOQUE)continue;
+    L.lanzo=true;
+    // apunta un poco alto porque la gravedad la baja unos 20 px en el camino
+    const dx=WILD.x-ball.x,dy=WILD.y-20-ball.y,d=Math.hypot(dx,dy);
+    ball.vx=dx/d*19.5*SPD;ball.vy=dy/d*19.5*SPD;L.fantasma=14;
+    score(2000,ball.x,ball.y-24);say('¡Hoja Aguda! Directa al centro de la mesa',130);
+    addFx(ball.x,ball.y,16,'#9fe07a',6);shake=Math.max(shake,7);
+    return;
+  }
+}
+
 /* ---------------- Dragonite, el río y Politoed ----------------
    Dragonite da coletazos sin parar al final de su carril. La bola que llega hasta él
    sale volando a la esquina de arriba a la derecha, baja con el río, cae por la
@@ -3148,6 +3205,7 @@ function finCapturaBosque(){
 }
 function pierdeBolaBosque(){
   const B=G.bosque,v=B.vm;
+  B.leaf.boton=false;B.leaf.fantasma=0;   // como Fennekin: el botón se apaga con la bola
   B.cueva=0;B.gancho=0;
   // si Venomoth seguía revoloteando vuelve a la cueva sin soltar polen: esa visita no cuenta
   if(v.fase==='sale'||v.fase==='vuela')vuelveVenomoth();
@@ -3177,13 +3235,17 @@ function physicsBosque(){
     ball.x+=ball.vx*f;ball.y+=ball.vy*f;
     for(const ch of BOSQUE_CH)
       for(let i=0;i<ch.length-1;i++)collide(ch[i][0],ch[i][1],ch[i+1][0],ch[i+1][1],7,0.42,0,null);
-    for(const sl of SLINGS)
+    for(const sl of SLINGS_BOSQUE)
       collide(sl.a[0],sl.a[1],sl.b[0],sl.b[1],9,0.35,12.4*SPD,(x,y)=>{score(120);addFx(x,y,6,'#ffc0dc',3);beep(520,.05,'square',.04);shake=Math.max(shake,3);});
     // bounsweet: rebote muy fuerte, como los koffing
     BOUNSWEETS.forEach(b=>collide(b.x,b.y,b.x,b.y,23,0.5,9.5*SPD,()=>golpeBounsweet(b)));
     if(B.vm.fase==='vuela')collide(B.vm.x,B.vm.y,B.vm.x,B.vm.y,VM_RAD,0.5,4*SPD,()=>golpeVenomoth());
     if(B.sp.fase==='pasea')collide(B.sp.x,B.sp.y,B.sp.x,B.sp.y,SP_RAD,0.5,3.4*SPD,()=>golpeSpinda());
     if(G.mode==='captura'&&G.wild)collide(G.wild.x,G.wild.y,G.wild.x,G.wild.y,30,0.4,3.5*SPD,()=>hurtWild());
+    if(B.leaf.fantasma<=0){
+      botonHit(LEAF.btn,B.leaf,'¡Botón de Leafeon activado! Pulsa ← cerca de él','Botón de Leafeon apagado');
+      collide(LEAF.x+4,LEAF.y+2,LEAF.x+4,LEAF.y+2,16,0.45,2*SPD,()=>{beep(700,.04,'sine',.03);});
+    }
     // compuerta de la boca de Dragonite: solo frena desde dentro y a la bola que no sube.
     // Las órbitas pasan por la boca bajando (vienen de arriba a la derecha); los tiros al
     // carril, subiendo
@@ -3208,6 +3270,10 @@ function updateBosque(){
   B.flores.forEach(f=>{if(f.nace&&f.nace<30)f.nace++;});
   pasoPolen();pasoVenomoth();pasoSpinda();pasoPolitoed();
   if(B.draGolpe>0)B.draGolpe--;
+  {const L=B.leaf;if(L.cd>0)L.cd--;if(L.ataque>0)L.ataque--;if(L.fantasma>0)L.fantasma--;
+    if(L.espera>0&&--L.espera===0)L.hojas=1;
+    if(L.hojas&&++L.hojas>HOJAS_T)L.hojas=0;
+    hojasTocan();}
   if(G.capAnim){capturaPaso();return;}
   if(B.gancho>0&&--B.gancho===GANCHO_IMPACTO&&ball.state==='ready')impactoGancho();
   if(B.rio)pasoRio();
@@ -3482,7 +3548,7 @@ function tableroBosque(t){
   g.beginPath();g.ellipse(PX(240,430),PY(430),110*PS(430),96*PS(430)*0.9,0,0,7);g.stroke();
   g.beginPath();g.moveTo(PX(130,430),PY(430));g.lineTo(PX(350,430),PY(430));g.stroke();
   g.globalAlpha=1;
-  [[44,532,1],[58,546,0.7],[414,540,0.9]].forEach(m=>seta(m[0],m[1],m[2]));
+  [[44,532,1],[414,540,0.9]].forEach(m=>seta(m[0],m[1],m[2]));
   g.restore();
 }
 /* el carril de la cueva, la boca al fondo y el tope del saque, todo en roca */
@@ -3931,6 +3997,51 @@ function dMachamp(t){
     machampPropio(X,Y-4*s,s,t,B.gancho>0);
   g.restore();
 }
+/* como actorGif, pero en espejo: el sprite mira al lado contrario que en el gif */
+function actorGifEspejo(k,x,y,alto,escala){
+  const rep=GIFS[k];if(!rep)return false;
+  const s=PS(y),h=alto*s*ESCALA_SPRITE*2*(escala||1),w=h*(rep.W/rep.H),X=PX(x,y),Y=PY(y);
+  g.save();g.imageSmoothingEnabled=false;
+  g.fillStyle='rgba(0,0,0,.30)';
+  g.beginPath();g.ellipse(X,Y+alto*s,w*0.32,w*0.08,0,0,7);g.fill();
+  g.translate(X,0);g.scale(-1,1);
+  g.drawImage(rep.lienzo(),-w/2,Y+alto*s-h,w,h);
+  g.restore();return true;
+}
+/* Leafeon en su repisa, mirando a la mesa: en reposo o lanzando el ataque */
+function dLeafeon(t){
+  const L=G.bosque.leaf,k=L.ataque>0?'leafeon-decoracion':'leafeon-decoracion-2';
+  if(!actorGifEspejo(k,LEAF.x,LEAF.y,LEAF.alto,L.ataque>0?LEAF_ESCALA_ATAQUE:1)){
+    // dibujo de repuesto mientras no carguen los gifs
+    const s=marco(LEAF.x,LEAF.y,20);
+    g.fillStyle='#f2e3b0';g.beginPath();g.ellipse(0,8,12,9,0,0,7);g.fill();
+    g.beginPath();g.ellipse(4,-4,9,8,0,0,7);g.fill();
+    g.fillStyle='#7fcf5a';
+    g.beginPath();g.ellipse(-2,-16,3,9,-0.4,0,7);g.ellipse(10,-15,3,9,0.4,0,7);g.ellipse(-12,2,4,10,-1,0,7);g.fill();
+    ojo(g,7,-5,2);
+    g.restore();
+  }
+  dHojas(t);
+}
+/* remolino de hojas: un torbellino que sale de Leafeon y avanza hacia la derecha.
+   Las hojas giran todas a la vez alrededor de un eje horizontal; las de delante van más
+   abiertas y las de atrás más cerradas, así que el remolino tiene forma de cono */
+function dHojas(t){
+  const L=G.bosque.leaf;if(!L.hojas)return;
+  g.save();
+  for(let i=0;i<N_HOJAS;i++){
+    const q=posHoja(L.hojas,i);
+    const s=PS(q.y),esc=s*(0.85+q.z/45),X=PX(q.x,q.y),Y=PY(q.y)-q.z*s*0.5;
+    g.globalAlpha=q.vis*(0.55+0.45*(q.z/q.r+1)/2);         // las de detrás, más tenues
+    g.save();g.translate(X,Y);g.rotate(q.a*1.3+i);g.scale(esc,esc);
+    // hoja: dos arcos que se juntan en punta, con su nervio
+    g.fillStyle=i%3?'#8fdc5e':'#c8f09a';g.strokeStyle='rgba(36,84,26,.85)';g.lineWidth=0.9;
+    g.beginPath();g.moveTo(-7,0);g.quadraticCurveTo(0,-4.5,7,0);g.quadraticCurveTo(0,4.5,-7,0);g.fill();g.stroke();
+    g.beginPath();g.moveTo(-6,0);g.lineTo(6,0);g.stroke();
+    g.restore();
+  }
+  g.restore();
+}
 /* Dragonite en su cámara, dando coletazos; destella al golpear la bola */
 function dDragonite(t){
   const B=G.bosque,D=DRAGONITE,s=PS(D.y),X=PX(D.x,D.y),Y=PY(D.y);
@@ -3973,6 +4084,7 @@ function dibujaBosque(t){
   g.drawImage(capaMesa(),0,0);
   dAgua(t);dCascada(t);dPolitoed(t);
   dDragonite(t);dCueva(t);
+  boton(LEAF.btn,G.bosque.leaf.boton,'#e8453a');dLeafeon(t);
   dPradera(t);dFlores(t);
   BOUNSWEETS.forEach(b=>dBounsweet(b,t));
   dSpinda(t);dVenomoth(t);dPolen(t);
@@ -4337,7 +4449,7 @@ function capaMesa(){
   const prev=g;g=c.getContext('2d');
   if(k==='mew'){tableroMew(0);paredesDe(MEW_CH,MEW_SLINGS);}
   else if(k==='pista'){tableroPista(0);paredesDe(PISTA_CH,PISTA_SLINGS);}
-  else if(k==='bosque'){tableroBosque(0);paredesDe(BOSQUE_PINTA,SLINGS,null,PAL_BOSQUE);rocaCueva();dTroncos();}
+  else if(k==='bosque'){tableroBosque(0);paredesDe(BOSQUE_PINTA,SLINGS_BOSQUE,null,PAL_BOSQUE);rocaCueva();dTroncos();}
   else{tablero(0);dCarril(0);dCarrilSnorlax(0);paredes();drawArbustos(0);}
   g=prev;
   return CAPA[k]=c;
