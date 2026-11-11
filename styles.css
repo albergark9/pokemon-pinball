@@ -111,3 +111,9 @@
   .tituloTabla{margin:0 0 4px;text-align:center;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--turq);
     text-shadow:0 0 10px rgba(56,224,198,.6)}
   .mesaTop.montana .tituloTabla{color:#9fdc72;text-shadow:0 0 10px rgba(159,220,114,.6)}
+  /* selector de idioma, arriba a la derecha del menú */
+  #menu{position:absolute}
+  .idioma{position:absolute;top:14px;right:14px;display:flex;gap:4px;padding:3px;border-radius:10px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);z-index:2}
+  .idioma button{padding:5px 10px;font-size:12px;border-radius:7px;background:none;color:var(--dim)}
+  .idioma button.activo{background:var(--turq);color:#03222a}

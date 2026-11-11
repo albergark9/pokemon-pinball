@@ -863,7 +863,36 @@ function addText(x,y,txt,color){texts.push({x,y,txt,color:color||'#fff',life:1})
 const MULT_BOLA=[1,1.5,2];
 function score(n,x,y){const v=Math.round(n*G.mult*MULT_BOLA[G.bola||0]);G.score+=v;
   if(x!==undefined)addText(x,y,'+'+v.toLocaleString('es'),'#ffe9a8');}
-function say(t,f){G.msg=t;G.msgT=f||150;}
+/* ---------------- idioma ----------------
+   El juego está escrito en español; tr() da la versión inglesa de cualquier texto que
+   se enseña (frases fijas, o con datos dentro por las reglas de idioma.js). Si una frase
+   no tiene traducción se queda en español. */
+let LANG=(()=>{try{const g=localStorage.getItem('pinball-idioma');if(g==='es'||g==='en')return g;}catch(e){}
+  return (navigator.language||'es').toLowerCase().startsWith('es')?'es':'en';})();
+function tr(t){
+  if(LANG==='es'||t==null)return t;
+  const D=window.I18N;if(!D)return t;
+  if(Object.prototype.hasOwnProperty.call(D.msg,t))return D.msg[t];
+  for(const r of D.reglas){const m=String(t).match(r[0]);if(m)return r[1](m,tr);}
+  return t;
+}
+const HTML_ES={};
+function aplicaIdioma(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.dataset.i18n;
+    if(!(k in HTML_ES))HTML_ES[k]=el.innerHTML;   // la primera vez se guarda el original en español
+    el.innerHTML=LANG==='en'&&window.I18N&&I18N.html[k]!=null?I18N.html[k]:HTML_ES[k];
+  });
+  document.querySelectorAll('.idioma button').forEach(b=>b.classList.toggle('activo',b.dataset.lang===LANG));
+  for(const k in HUD_ANT)delete HUD_ANT[k];   // el marcador lateral se reescribe en el idioma nuevo
+}
+function ponIdioma(l){
+  LANG=l;try{localStorage.setItem('pinball-idioma',l);}catch(e){}
+  aplicaIdioma();if(G)updateHUD();
+  if(!$('puntos').classList.contains('hidden'))$('verPuntos').onclick();
+}
+function say(t,f){G.msg=tr(t);G.msgT=f||150;}
 
 /* ============================================================
    FÍSICA
@@ -1245,10 +1274,11 @@ function capturaPaso(){
     if(hayBonus&&G.capturasBonus>=3&&G.hoyo<=0&&G.hoyoRetardo<=0){
       G.hoyoRetardo=300;say('La mesa empieza a vibrar…',150);}
     score(15000,a.x,a.y-50);
-    say('¡'+a.sp.n+' capturado!'+(G.escena==='bosque'?' · las flores se marchitan':''),200);
+    const marchitan=G.escena==='bosque'&&G.bosque.estado>=2;   // solo con las azules abiertas
+    say('¡'+a.sp.n+' capturado!'+(marchitan?' · las flores se marchitan':''),200);
     addFx(ball.x,ball.y,26,'#ffd27a',5.5);chime([523,659,784,1046],80);
     G.mode=null;G.wild=null;G.capAnim=null;
-    if(G.escena==='bosque')finCapturaBosque();else cierraValla();
+    if(G.escena==='bosque'){if(marchitan)finCapturaBosque();}else cierraValla();
     ball.state='play';ball.vy=-2.5;ball.vx=(ball.x<240?1.5:-1.5);
   }
 }
@@ -1278,8 +1308,8 @@ function loseBall(){
 }
 function gameOver(){
   G.state='over';
-  $('overTxt').textContent=G.score.toLocaleString('es')+' puntos · '+
-    G.dex.size+' especies registradas de '+totalDex()+' posibles.';
+  $('overTxt').textContent=tr(G.score.toLocaleString('es')+' puntos · '+
+    G.dex.size+' especies registradas de '+totalDex()+' posibles.');
   const grid=$('overGrid');
   grid.style.display='grid';grid.style.gridTemplateColumns='repeat(auto-fill,minmax(84px,1fr))';
   grid.style.gap='8px';grid.style.alignContent='start';
@@ -1323,9 +1353,9 @@ async function guardaPuntuacion(mesa,nombre,puntos){
 /* la tabla: posición, iniciales en neón y puntos; marca resalta la partida recién guardada */
 function pintaTabla(el,lista,marca,titulo){
   el.innerHTML='';
-  if(titulo){const h=document.createElement('p');h.className='tituloTabla';h.textContent=titulo;el.appendChild(h);}
+  if(titulo){const h=document.createElement('p');h.className='tituloTabla';h.textContent=tr(titulo);el.appendChild(h);}
   const t=document.createElement('div');t.className='tabla';
-  if(!lista.length){const v=document.createElement('div');v.className='vacia';v.textContent='Todavía no hay puntuaciones guardadas.';t.appendChild(v);}
+  if(!lista.length){const v=document.createElement('div');v.className='vacia';v.textContent=tr('Todavía no hay puntuaciones guardadas.');t.appendChild(v);}
   let marcada=false;
   lista.forEach((p,i)=>{
     const tuya=!marcada&&marca&&p.nombre===marca.nombre&&p.puntos===marca.puntos;if(tuya)marcada=true;
@@ -1344,7 +1374,7 @@ function finPuntuacion(puntos){
       let prev='';try{prev=localStorage.getItem('pinball-iniciales')||'';}catch(e){}
       INI.letras=/^[A-Z]{3}$/.test(prev)?prev.split(''):['A','A','A'];
       INI.pos=0;INI.puntos=puntos;INI.mesa=mesa;INI.guardando=false;INI.activa=true;
-      $('neonTit').textContent='¡Nueva puntuación en el top 10 de la '+MESAS_TOP[mesa].toLowerCase()+'!';
+      $('neonTit').textContent=tr('¡Nueva puntuación en el top 10 de la '+MESAS_TOP[mesa].toLowerCase()+'!');
       $('iniciales').classList.remove('hidden');pintaIniciales();
     } else {pintaTabla($('tablaOver'),lista,null,'Top 10 · '+MESAS_TOP[mesa]);$('tablaOver').classList.remove('hidden');}
   });
@@ -2037,7 +2067,7 @@ function hudPista(t){
   g.strokeStyle='rgba(255,210,122,.4)';g.lineWidth=1.5;
   roundRectPath(g,108,12,264,54,12);g.stroke();
   g.fillStyle='#ffd27a';g.font='700 11px system-ui';
-  g.fillText('ESTADIO DE ALOLA · CARRERA BONUS',240,28);
+  g.fillText(tr('ESTADIO DE ALOLA · CARRERA BONUS'),240,28);
   const seg=Math.max(0,Math.ceil(m.tiempo/60));
   g.fillStyle=seg<=10?'#ff8a6b':'#eaffff';g.font='800 16px system-ui';
   g.textAlign='left';g.fillText(seg+' s',120,49);
@@ -2329,7 +2359,7 @@ function hudManada(t){
   g.strokeStyle='rgba(200,210,255,.35)';g.lineWidth=1.5;
   roundRectPath(g,108,12,264,54,12);g.stroke();
   g.fillStyle='#c8d2ff';g.font='700 11px system-ui';
-  g.fillText('MONTAÑA DE NOCHE · LA MANADA',240,28);
+  g.fillText(tr('MONTAÑA DE NOCHE · LA MANADA'),240,28);
   const seg=Math.max(0,Math.ceil(m.tiempo/60));
   g.fillStyle=seg<=10?'#ff8a6b':'#eaffff';g.font='800 16px system-ui';
   g.textAlign='left';g.fillText(seg+' s',120,49);
@@ -3088,7 +3118,7 @@ function hudZygarde(t){
   g.strokeStyle='rgba(160,230,110,.3)';g.lineWidth=1.5;
   roundRectPath(g,108,12,264,34,12);g.stroke();
   g.fillStyle='#c8f09a';g.font='700 11px system-ui';
-  g.fillText('CUEVA DE ZYGARDE · BONUS',240,29);
+  g.fillText(tr('CUEVA DE ZYGARDE · BONUS'),240,29);
   const seg=Math.max(0,Math.ceil(z.tiempo/60));   // sin números: solo la barra avisa del tiempo
   g.fillStyle='rgba(255,255,255,.14)';g.fillRect(114,37,252,3);
   g.fillStyle=seg<=10?'#ff8a6b':'#c8f09a';g.fillRect(114,37,252*clamp(z.tiempo/ZYG_TIEMPO,0,1),3);
@@ -3325,7 +3355,7 @@ function hudMew(t){
   g.strokeStyle='rgba(120,240,220,.35)';g.lineWidth=1.5;
   roundRectPath(g,120,14,240,42,12);g.stroke();
   g.fillStyle='#7fe8d8';g.font='700 11px system-ui';
-  g.fillText('LABORATORIO SECRETO · BONUS',240,30);
+  g.fillText(tr('LABORATORIO SECRETO · BONUS'),240,30);
   const seg=Math.max(0,Math.ceil(m.tiempo/60));
   g.fillStyle=seg<=15?'#ff8a6b':'#eaffff';g.font='800 17px system-ui';
   g.fillText(seg+' s',240,48);
@@ -3334,7 +3364,7 @@ function hudMew(t){
   g.fillStyle=seg<=15?'#ff8a6b':'#7fe8d8';g.fillRect(126,57,228*clamp(m.tiempo/(90*60),0,1),3);
   if(m.congelado>0){
     g.fillStyle='#ff9ede';g.font='700 12px system-ui';
-    g.fillText('BOLA CONGELADA · '+Math.ceil(m.congelado/60)+' s',240,76);
+    g.fillText(tr('BOLA CONGELADA · '+Math.ceil(m.congelado/60)+' s'),240,76);
   }
   g.restore();
 }
@@ -3349,11 +3379,11 @@ function dLetreroBonus(m,t,txtOk,txtKo){
     g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=6;
     g.strokeText('BONUS',0,-24);g.fillText('BONUS',0,-24);
     g.fillStyle='#fff';g.font='800 40px system-ui';
-    const p=ok?m.premio.toLocaleString('es'):'FALLIDO';
+    const p=ok?m.premio.toLocaleString('es'):tr('FALLIDO');
     g.strokeText(p,0,30);g.fillText(p,0,30);
     g.font=ok?'700 15px system-ui':'600 14px system-ui';
     g.fillStyle=ok?'#9fe8d8':'#9fbcc8';
-    g.fillText(ok?(txtOk||'PUNTOS'):(txtKo||'Mew sigue suelto en el laboratorio'),0,58);
+    g.fillText(tr(ok?(txtOk||'PUNTOS'):(txtKo||'Mew sigue suelto en el laboratorio')),0,58);
   }
   g.restore();
 }
@@ -3966,9 +3996,10 @@ function dChandelure(t){
    ------------------------------------------------------------
    Cada visita a la cueva saca a Venomoth, que revolotea hasta
    que lo golpeas; entonces poliniza la pradera y brotan flores
-   (rojas: Bounsweet x2; rojas y azules: x3). La tercera visita
-   saca a Spinda, que abre el modo captura. Al acabar la
-   captura, bien o mal, las flores se marchitan y se empieza de 0.
+   (rojas: Bounsweet x2; rojas y azules: x3). Después de cada
+   polinización, la siguiente visita saca a Spinda, que abre el modo
+   captura. Las flores solo se marchitan (y se empieza de 0) si se
+   captura con las azules ya abiertas, o si se pierde la bola.
    ============================================================ */
 const lerp=(a,b,u)=>a+(b-a)*u;
 const PRADERA={x:240,y:254,rx:80,ry:72};
@@ -4063,7 +4094,8 @@ function bosqueNuevo(){return{
   leaf:{boton:false,cd:0,ataque:0,fantasma:0,hojas:0,espera:0,lanzo:false},   // botón, ataque y remolino de Leafeon
   rio:null,draGolpe:0,pol:nuevoPolitoed(),   // el viaje de la bola por el río y Politoed en el estanque
   lanzada:false,   // la bola acaba de salir de Machamp y aún no ha vuelto a la parte baja de la mesa
-  estado:0,      // pasadas de polen completadas: con 2, la cueva ya no saca a Venomoth sino a Spinda
+  estado:0,      // pasadas de polen completadas (1 rojas, 2 rojas y azules)
+  spPend:false,  // tras cada polinización, la siguiente visita a la cueva saca a Spinda
   nivel:0,       // flores que puntúan: 0 ninguna, 1 rojas (x2), 2 rojas y azules (x3)
   flores:[],polen:[],marchita:0,
   vm:{fase:null,t:0,x:CUEVA.x,y:CUEVA.y,z:0,px:0,py:0,pz:0,rumbo:0,rumboObj:0,rumboT:0,
@@ -4086,8 +4118,11 @@ function compruebaCueva(){
   ball.state='held';ball.vx=0;ball.vy=0;ball.x=CUEVA.x;ball.y=CUEVA.y;ball.trail.length=0;
   barrido(520,150,0.35,'sine',0.05);shake=Math.max(shake,5);
   score(3000,44,CUEVA.y-34);
-  if(B.estado<2)saleVenomoth();else saleSpinda();
+  if(spindaToca())saleSpinda();else saleVenomoth();
 }
+/* Spinda espera en la cueva justo después de cada polinización; con las azules ya no
+   hay más flores que sacar, así que siempre es él */
+function spindaToca(){const B=G.bosque;return B.spPend||B.estado>=2;}
 /* lanza la bola desde el fondo del carril hacia arriba, de vuelta a la mesa */
 function devuelveBola(){
   ball.state='play';ball.x=CUEVA.x+4;ball.y=CUEVA.y-4;
@@ -4212,8 +4247,8 @@ function plantaFlores(color){
   return nuevas;
 }
 function florecen(){
-  const B=G.bosque;B.estado++;B.nivel=B.estado;
-  say(B.estado===1?'¡Brotan flores rojas! Los Bounsweet puntúan x2'
+  const B=G.bosque;B.estado++;B.nivel=B.estado;B.spPend=true;
+  say(B.estado===1?'¡Brotan flores rojas! Los Bounsweet puntúan x2 · Spinda espera en la cueva'
                   :'¡Y ahora azules! Los Bounsweet puntúan x3 · Spinda espera en la cueva',240);
   chime(B.estado===1?[659,880,1046]:[784,1046,1319],75);shake=Math.max(shake,5);
 }
@@ -4231,6 +4266,7 @@ function sobreRuta(r,u){
   }
 }
 function saleSpinda(){
+  G.bosque.spPend=false;
   Object.assign(G.bosque.sp,{fase:'sale',t:0,x:SP_CUEVA[0],y:SP_CUEVA[1],z:0});
   say('¡Spinda sale de detrás de la cueva! Golpéalo para buscar pokémon',230);
   chime([523,659,784,1046],70);
@@ -4428,7 +4464,7 @@ function pierdeBolaBosque(){
   B.polen=[];
   // Spinda, si había salido, vuelve a esconderse detrás de la cueva
   if(p.fase==='sale'||p.fase==='pasea'){p.fase='vuelve';p.t=0;p.px=p.x;p.py=p.y;}
-  finCapturaBosque();   // flores marchitas y contador de polen a cero
+  finCapturaBosque();B.spPend=false;   // flores marchitas, contador de polen a cero y Spinda escondido
   // Politoed se hunde y no vuelve a asomar hasta el próximo coletazo de Dragonite
   P.activo=false;P.escupe=false;P.cd=0;P.inmune=0;
   if(P.fase==='sube'||P.fase==='juega'){const t0=P.fase==='sube'?POL_SUBE-P.t:0;P.fase='baja';P.t=t0;}
@@ -4444,7 +4480,7 @@ function guiaBosque(){
   if(B.sp.fase==='pasea')return 'Golpea a Spinda para buscar pokémon';
   if(B.vm.fase==='vuela')return 'Golpea a Venomoth para que polinice la pradera';
   if(B.vm.fase||B.sp.fase||B.cueva>0)return 'Bounsweet puntúa x'+(1+B.nivel);
-  return B.estado>=2?'Mete la bola en la cueva: Spinda espera detrás':'Mete la bola en la cueva de Venomoth';
+  return spindaToca()?'Mete la bola en la cueva: Spinda espera detrás':'Mete la bola en la cueva de Venomoth';
 }
 
 /* ---------------- física y ciclo ---------------- */
@@ -4533,8 +4569,8 @@ function updateBosque(){
   if(G.mode){
     G.timer--;
     if(G.wild&&G.wild.flash)G.wild.flash--;
-    if(G.timer<=0){say('Se escapó… las flores se marchitan',160);beep(200,.3,'sawtooth',.05);
-      G.mode=null;G.wild=null;finCapturaBosque();}
+    if(G.timer<=0){say('Se escapó…',160);beep(200,.3,'sawtooth',.05);
+      G.mode=null;G.wild=null;}   // las flores siguen: solo se marchitan al capturar con las azules
   }
 }
 
@@ -4857,15 +4893,15 @@ function dCueva(t){
   const libre=cuevaLibre();
   g.save();
   // ojos de Venomoth brillando en la oscuridad (parpadean de vez en cuando)
-  if(libre&&B.estado<2&&fr(t/170)>0.05){
+  if(libre&&!spindaToca()&&fr(t/170)>0.05){
     g.fillStyle='rgba(225,215,255,.9)';
     g.beginPath();g.ellipse(X-5*s,Y-6*s,2.6*s,3.2*s,0,0,7);g.ellipse(X+4*s,Y-6*s,2.6*s,3.2*s,0,0,7);g.fill();
     g.fillStyle='#1a1020';
     g.beginPath();g.arc(X-5*s,Y-5.4*s,1.2*s,0,7);g.arc(X+4*s,Y-5.4*s,1.2*s,0,7);g.fill();
   }
-  // con las flores azules la que espera dentro es Spinda: sus ojos son dos espirales
+  // cuando la que espera dentro es Spinda, sus ojos son dos espirales
   // como la del marcador encendido (y parpadean igual que los de Venomoth)
-  if(libre&&B.estado>=2&&fr(t/170)>0.05){
+  if(libre&&spindaToca()&&fr(t/170)>0.05){
     g.strokeStyle='#ff8fb0';g.lineWidth=1.4*s;g.lineCap='round';
     g.shadowColor='#ff8fb0';g.shadowBlur=8;
     [[X-5*s,Y-6*s],[X+5*s,Y-6*s]].forEach(o=>{espiral(o[0],o[1],0.6*s);g.stroke();});
@@ -5601,7 +5637,7 @@ function drawWild(t){
     g.beginPath();g.arc(X-14*s+i*14*s,Y-44*s,4.5*s,0,7);g.fill();
   }
   g.fillStyle='rgba(255,255,255,.85)';g.font='700 '+Math.round(11*s)+'px system-ui';g.textAlign='center';
-  g.fillText(w.sp.n.toUpperCase(),X,Y+48*s);
+  g.fillText(tr(w.sp.n).toUpperCase(),X,Y+48*s);
 }
 function drawCaptura(t){
   const a=G.capAnim;if(!a)return;
@@ -5846,8 +5882,8 @@ function dComun(t){
   }
   if(G.paused){
     g.fillStyle='rgba(3,12,19,.72)';g.fillRect(0,0,W,H);
-    g.fillStyle='#fff';g.font='800 26px system-ui';g.fillText('Pausa',240,370);
-    g.font='500 14px system-ui';g.fillStyle='#9fbcc8';g.fillText('Pulsa P para continuar',240,398);
+    g.fillStyle='#fff';g.font='800 26px system-ui';g.fillText(tr('Pausa'),240,370);
+    g.font='500 14px system-ui';g.fillStyle='#9fbcc8';g.fillText(tr('Pulsa P para continuar'),240,398);
   }
 }
 
@@ -5870,9 +5906,9 @@ function updateHUD(){
   let w='0%',m;
   if(G.mode){
     w=(G.timer/G.timerMax*100)+'%';
-    m=(G.msgT>0?G.msg:'MODO CAPTURA · '+Math.ceil(G.timer/60)+'s');
+    m=(G.msgT>0?G.msg:tr('MODO CAPTURA · '+Math.ceil(G.timer/60)+'s'));
   }else{
-    m=G.msgT>0?G.msg:(G.state==='play'?(G.escena==='bosque'?guiaBosque():guiaPlaya()):'Pulsa Jugar para empezar');
+    m=G.msgT>0?G.msg:tr(G.state==='play'?(G.escena==='bosque'?guiaBosque():guiaPlaya()):'Pulsa Jugar para empezar');
   }
   if(HUD_ANT.bar!==w){HUD_ANT.bar=w;bar.style.width=w;}
   if(HUD_ANT.txt!==m){HUD_ANT.txt=m;txt.textContent=m;}
@@ -5885,14 +5921,14 @@ function fillDex(grid){
     const d=document.createElement('div');d.className='mon';
     const c=document.createElement('canvas');c.width=c.height=104;
     pintarCapturable(c.getContext('2d'),k,52,54,80,0,false);
-    const sm=document.createElement('small');sm.textContent=sp.n;
+    const sm=document.createElement('small');sm.textContent=tr(sp.n);
     d.appendChild(c);d.appendChild(sm);grid.appendChild(d);
   });
 }
 function openDex(){
   if(G.state==='menu')return;
   G.paused=true;
-  $('dexTxt').textContent=G.dex.size+' de '+totalDex()+' especies registradas en esta partida.';
+  $('dexTxt').textContent=tr(G.dex.size+' de '+totalDex()+' especies registradas en esta partida.');
   fillDex($('dexGrid'));$('dex').classList.remove('hidden');
 }
 function closeDex(){$('dex').classList.add('hidden');G.paused=false;}
@@ -5972,6 +6008,8 @@ $('practicaZygarde2').onclick=()=>startGame('zygarde2');
   d.querySelectorAll('.flecha').forEach(b=>b.onclick=()=>{INI.pos=i;cambiaLetra(i,+b.dataset.d);pintaIniciales();});
 });
 $('guardarIni').onclick=guardaIniciales;
+document.querySelectorAll('.idioma button').forEach(b=>b.onclick=()=>ponIdioma(b.dataset.lang));
+aplicaIdioma();
 $('verPuntos').onclick=()=>{
   $('menu').classList.add('hidden');$('puntos').classList.remove('hidden');
   // las dos mesas, una al lado de la otra

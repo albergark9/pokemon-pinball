@@ -7,85 +7,87 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- Los textos con data-i18n se traducen al inglés desde idioma.js (la clave es su nombre allí) -->
 <div id="app">
   <div id="side">
     <div id="hud">
-      <div class="stat" id="score"><b>Puntos</b><span>0</span></div>
-      <div class="stat" id="balls"><b>Bolas</b><span>3</span></div>
+      <div class="stat" id="score"><b data-i18n="hud.puntos">Puntos</b><span>0</span></div>
+      <div class="stat" id="balls"><b data-i18n="hud.bolas">Bolas</b><span>3</span></div>
       <div class="stat" id="mult"><b>Mult</b><span>x1</span></div>
-      <div class="stat" id="dexn" title="Ver Pokédex"><b>Pokédex</b><span>0</span></div>
+      <div class="stat" id="dexn"><b>Pokédex</b><span>0</span></div>
     </div>
     <div id="banner"><div id="bannerBar"></div><div id="bannerTxt">Pulsa Jugar para empezar</div></div>
-    <button class="btnmini" id="btnPausa">Pausa</button>
+    <button class="btnmini" id="btnPausa" data-i18n="btn.pausa">Pausa</button>
     <button class="btnmini" id="btnDex">Pokédex</button>
-    <button class="btnmini" id="btnMenu">Menú de inicio</button>
-    <div id="sideHelp">Flippers ← → (también acciones especiales) · Lanzador Espacio · Tab Pokédex · P pausa · M sonido</div>
+    <button class="btnmini" id="btnMenu" data-i18n="btn.menu">Menú de inicio</button>
+    <div id="sideHelp" data-i18n="side.ayuda">Flippers ← → (también acciones especiales) · Lanzador Espacio · Tab Pokédex · P pausa · M sonido</div>
   </div>
 
   <div id="stage">
     <canvas id="c" width="480" height="760"></canvas>
 
     <div id="menu" class="overlay">
+      <div class="idioma"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
       <h1>Pinball <em>Pokémon</em></h1>
-      <p class="sub">Elige mesa: la playa al atardecer o la montaña de la cascada.</p>
+      <p class="sub" data-i18n="menu.sub">Elige mesa: la playa al atardecer o la montaña de la cascada.</p>
       <div class="mesas">
-        <button id="jugar" class="mesa"><img src="assets/sprites/playa.png" alt=""><span>Jugar · Playa</span></button>
-        <button id="jugarBosque" class="mesa bosque"><img src="assets/sprites/montana.png" alt=""><span>Jugar · Montaña</span></button>
+        <button id="jugar" class="mesa"><img src="assets/sprites/playa.png" alt=""><span data-i18n="menu.playa">Jugar · Playa</span></button>
+        <button id="jugarBosque" class="mesa bosque"><img src="assets/sprites/montana.png" alt=""><span data-i18n="menu.montana">Jugar · Montaña</span></button>
       </div>
-      <div class="row"><button class="btnmini" id="verPuntos" style="width:auto;padding:10px 18px">Puntuaciones</button><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
+      <div class="row"><button class="btnmini" id="verPuntos" style="width:auto;padding:10px 18px" data-i18n="menu.puntos">Puntuaciones</button><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px" data-i18n="menu.info">Ver información</button></div>
     </div>
 
     <div id="info" class="overlay hidden">
-      <h1>Cómo se juega</h1>
-      <p class="sub">Dos mesas en falso 3D, cada una con sus habitantes y sus mecánicas.</p>
-      <p class="sub"><b>Playa al atardecer</b></p>
+      <h1 data-i18n="info.h1">Cómo se juega</h1>
+      <p class="sub" data-i18n="info.sub">Dos mesas en falso 3D, cada una con sus habitantes y sus mecánicas.</p>
+      <p class="sub" data-i18n="info.playa"><b>Playa al atardecer</b></p>
       <ul class="mecs">
-        <li><b>Fennekin</b> (borde izquierdo): golpea su botón rojo y luego pulsa <kbd>←</kbd> con la bola cerca — salta un puñado de chispas y su llamarada la dispara en horizontal, cruzando la mesa de lado a lado. Volver a golpear el botón lo apaga.</li>
-        <li><b>Bunneary</b> (entre el seto, a la izquierda de los Koffing): salta sin parar; cualquier toque inicia una captura. Una <b>valla de madera</b> tapa la boca de su carril y hay que derribarla antes para llegar hasta él.</li>
-        <li><b>Carril del Snorlax</b> (abajo a la izquierda): la pared se abre en un canal vertical que baja recto hasta él. La bola que se cuela lo despierta de golpe y sale disparada hacia arriba, así que no se pierde. Además el porrazo la mejora: el primero la convierte en <b>superball</b> (todo puntúa x1,5) y el siguiente en <b>ultraball</b> (x2), pero para ese ascenso hay que llevar al menos <b>10 s</b> siendo superball. Se pierde con la bola.</li>
-        <li><b>Vuelta a la ciénaga</b>: tres flechas —a la derecha de la ciénaga, encima y a la izquierda del Bunneary— se cruzan en ese orden al rodearla de derecha a izquierda. Una vuelta las pone amarillas; la segunda las pone <b>rojas</b> y la valla de madera del Bunneary salta en pedazos. Al terminar la captura, con éxito o sin él, la valla se rehace y las flechas vuelven a empezar.</li>
-        <li><b>Media luna</b> (sobre la ciénaga): dos cuartos de seto separados por un carril vertical, justo por donde el emolga sube y suelta la bola.</li>
-        <li><b>Tres Koffing</b> (centro): rebotes muy potentes sobre una ciénaga. Cada vez que la bola llega al Emolga se enciende una de las dos flechas del carril: con la primera la ciénaga fermenta y los Koffing puntúan el doble, con la segunda hierve como azufre y puntúan el triple. Al perder la bola se apaga todo.</li>
-        <li><b>Carril del Exeggutor</b> (costado izquierdo): la pared se abre en una boca grande; cuela ahí la bola y subirá por la torre vertical hasta la tapa que corona el Exeggutor de Alola. Al golpearla desde abajo sale el Emolga escondido, que eleva la bola y la suelta entre los Koffing.</li>
-        <li><b>Starmie</b> (borde derecho): golpea su botón y pulsa <kbd>→</kbd> con la bola cerca — su giro la dispara directa a la boca del carril. Volver a golpear el botón lo apaga.</li>
-        <li><b>Chandelure</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su fuego se vuelve rojo al disparar.</li>
-        <li><b>Bonus</b>: cada 3 capturas se abre en el centro de la mesa, 5 s después, una pokébola gigante con un agujero que dura 20 s. Cuela la bola y saltarás a un nivel de bonus; se alternan la <b>pista de atletismo</b> y el <b>laboratorio de Mew</b>, empezando por la pista.</li>
-        <li><b>Bonus · Pista de atletismo</b>: cinco carriles horizontales por los que cruzan corredores, uno nuevo cada 5 s en un carril al azar. Scorbunny corre de derecha a izquierda a velocidad media y Pikachu de izquierda a derecha más rápido. Tienes 60 s para derribar a <b>8 corredores</b>: al octavo la carrera termina con 500.000 puntos; si se agota el tiempo, bonus fallido.</li>
-        <li><b>Bonus · Laboratorio secreto</b>: la mesa de Mew: 10 golpes para reventar su tanque y 10 más para tumbarlo mientras vuela, con 90 s en total y su ataque psíquico congelando 3 s la bola que esté a menos de 200 px de él. Solo se cobra el 1.000.000 completando los 10 golpes; si se agota el tiempo, bonus fallido. Al volver hay que capturar otros 3 pokémon para que reaparezca el acceso… y si logras tumbar a Mew una segunda vez, no huirá: lo capturarás por 5.000.000 y ya no habrá más viajes al laboratorio.</li>
+        <li data-i18n="info.p1"><b>Fennekin</b> (borde izquierdo): golpea su botón rojo y luego pulsa <kbd>←</kbd> con la bola cerca — salta un puñado de chispas y su llamarada la dispara en horizontal, cruzando la mesa de lado a lado. Volver a golpear el botón lo apaga.</li>
+        <li data-i18n="info.p2"><b>Bunneary</b> (entre el seto, a la izquierda de los Koffing): salta sin parar; cualquier toque inicia una captura. Una <b>valla de madera</b> tapa la boca de su carril y hay que derribarla antes para llegar hasta él.</li>
+        <li data-i18n="info.p3"><b>Carril del Snorlax</b> (abajo a la izquierda): la pared se abre en un canal vertical que baja recto hasta él. La bola que se cuela lo despierta de golpe y sale disparada hacia arriba, así que no se pierde. Además el porrazo la mejora: el primero la convierte en <b>superball</b> (todo puntúa x1,5) y el siguiente en <b>ultraball</b> (x2), pero para ese ascenso hay que llevar al menos <b>10 s</b> siendo superball. Se pierde con la bola.</li>
+        <li data-i18n="info.p4"><b>Vuelta a la ciénaga</b>: tres flechas —a la derecha de la ciénaga, encima y a la izquierda del Bunneary— se cruzan en ese orden al rodearla de derecha a izquierda. Una vuelta las pone amarillas; la segunda las pone <b>rojas</b> y la valla de madera del Bunneary salta en pedazos. Al terminar la captura, con éxito o sin él, la valla se rehace y las flechas vuelven a empezar.</li>
+        <li data-i18n="info.p5"><b>Media luna</b> (sobre la ciénaga): dos cuartos de seto separados por un carril vertical, justo por donde el emolga sube y suelta la bola.</li>
+        <li data-i18n="info.p6"><b>Tres Koffing</b> (centro): rebotes muy potentes sobre una ciénaga. Cada vez que la bola llega al Emolga se enciende una de las dos flechas del carril: con la primera la ciénaga fermenta y los Koffing puntúan el doble, con la segunda hierve como azufre y puntúan el triple. Al perder la bola se apaga todo.</li>
+        <li data-i18n="info.p7"><b>Carril del Exeggutor</b> (costado izquierdo): la pared se abre en una boca grande; cuela ahí la bola y subirá por la torre vertical hasta la tapa que corona el Exeggutor de Alola. Al golpearla desde abajo sale el Emolga escondido, que eleva la bola y la suelta entre los Koffing.</li>
+        <li data-i18n="info.p8"><b>Starmie</b> (borde derecho): golpea su botón y pulsa <kbd>→</kbd> con la bola cerca — su giro la dispara directa a la boca del carril. Volver a golpear el botón lo apaga.</li>
+        <li data-i18n="info.p9"><b>Chandelure</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su fuego se vuelve rojo al disparar.</li>
+        <li data-i18n="info.p10"><b>Bonus</b>: cada 3 capturas se abre en el centro de la mesa, 5 s después, una pokébola gigante con un agujero que dura 20 s. Cuela la bola y saltarás a un nivel de bonus; se alternan la <b>pista de atletismo</b> y el <b>laboratorio de Mew</b>, empezando por la pista.</li>
+        <li data-i18n="info.p11"><b>Bonus · Pista de atletismo</b>: cinco carriles horizontales por los que cruzan corredores, uno nuevo cada 5 s en un carril al azar. Scorbunny corre de derecha a izquierda a velocidad media y Pikachu de izquierda a derecha más rápido. Tienes 60 s para derribar a <b>8 corredores</b>: al octavo la carrera termina con 500.000 puntos; si se agota el tiempo, bonus fallido.</li>
+        <li data-i18n="info.p12"><b>Bonus · Laboratorio secreto</b>: la mesa de Mew: 10 golpes para reventar su tanque y 10 más para tumbarlo mientras vuela, con 90 s en total y su ataque psíquico congelando 3 s la bola que esté a menos de 200 px de él. Solo se cobra el 1.000.000 completando los 10 golpes; si se agota el tiempo, bonus fallido. Al volver hay que capturar otros 3 pokémon para que reaparezca el acceso… y si logras tumbar a Mew una segunda vez, no huirá: lo capturarás por 5.000.000 y ya no habrá más viajes al laboratorio.</li>
       </ul>
-      <p class="sub"><b>Montaña de la cascada</b></p>
+      <p class="sub" data-i18n="info.montana"><b>Montaña de la cascada</b></p>
       <ul class="mecs">
-        <li><b>Machamp</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su gancho hacia arriba saca la bola disparada.</li>
-        <li><b>Tres Bounsweet</b> (centro): rebotes muy potentes sobre una pradera. Con flores rojas puntúan el doble y con rojas y azules, el triple.</li>
-        <li><b>Cueva de Venomoth</b> (izquierda, al pie de la montaña): está al final de un carril corto que sale de la mesa. Para entrar hay que hacer que la bola rodee la mesa pegada a la pared, de derecha a izquierda, hasta caer en el carril; un tope de roca a la salida del lanzador evita que el saque de Machamp entre solo. Al entrar sale Venomoth revoloteando. Golpéalo una vez: vuela sobre los Bounsweet, suelta polen naranja y en la pradera brotan <b>flores rojas</b>. La segunda vez brotan <b>azules</b> junto a las rojas. Mientras Venomoth está fuera, la cueva no hace nada; si pierdes la bola antes de golpearlo, vuelve a esconderse sin soltar polen.</li>
-        <li><b>Leafeon</b> (borde izquierdo, bajo la cueva): golpea su botón rojo y luego pulsa <kbd>←</kbd> — lanza Hoja Aguda: medio segundo después sale un remolino de hojas hacia la derecha, y si alguna hoja toca la bola, esta sale disparada hacia el centro de la mesa, donde aparece el pokémon de captura. Volver a golpear el botón lo apaga.</li>
-        <li><b>Dragonite</b> (arriba a la izquierda): en la pared, donde la montaña cambia de color, se abre un carril que sube hasta Dragonite. Hay que entrar con fuerza: la bola que solo rodea la mesa pasa de largo hacia la cueva. Su coletazo manda la bola al río: baja por la cascada y el arroyo y se hunde en el estanque.</li>
-        <li><b>Politoed</b> (en el estanque): asoma la cabeza del agua y saca la bola de vuelta a la mesa; después vuelve a asomar cada 5 segundos. Golpéalo mientras asoma y la bola evoluciona (pokéball → superball → ultraball); entonces se esconde hasta el siguiente coletazo de Dragonite.</li>
-        <li><b>Spinda</b>: la tercera vez que cuelas la bola en la cueva, Spinda sale de detrás y pasea de lado a lado por encima de la pradera. Golpéalo para abrir el modo captura, con los mismos pokémon que en la playa. Al terminar la captura, salga bien o mal, las flores se marchitan y Venomoth vuelve a empezar.</li>
-        <li><b>Bonus de la montaña</b>: cada 3 capturas se abre en el centro de la montaña, 5 s después, la pokébola gigante (20 s). Cuela la bola y saltarás a un bonus; se alternan la <b>manada de Mightyena</b> y la <b>guarida de Zygarde</b>, empezando por la manada. Cuando captures a Zygarde, ya solo quedará la manada.</li>
-        <li><b>Bonus · La manada de Mightyena</b>: dentro es de noche y hay 6 Mightyena repartidos al azar entre 4 arbustos que desvían la bola y los esconden; la mitad tiene además una roca delante, así que hay que darles por los lados o por detrás. Se entra ya a oscuras, y cada 10 s aúllan todos y vuelve la oscuridad unos segundos, salvo un círculo de luz alrededor de la bola que crece con cada Mightyena eliminado. Tienes 75 s para eliminarlos a todos y ganar 750.000 puntos.</li>
-        <li><b>Bonus · La guarida de Zygarde</b>: un combate en una cueva, con 90 s para derrotar a Zygarde (el marcador no dice cuántos golpes le quedan). Alterna dos movimientos: su ataque levanta a su alrededor un muro de piedras afiladas (cada piedra se desmorona con <b>2 golpes</b>, y la bola que esté dentro sale despedida), y al rato excava, se esconde bajo tierra —donde no se le puede dar— y reaparece en otro sitio. Derrotarlo da 1.000.000 de puntos… y si lo derrotas una segunda vez, no huirá: excavará hasta el centro del hexágono, un aura verde lo envolverá y tomará su <b>forma completa</b>, y en cada vértice se alzará una columna de fuego verde, con cortinas de fuego bajo en los lados que van dejando dos huecos. Cuela la bola entre el fuego y golpéalo <b>una vez</b> para capturarlo por 5.000.000 de puntos.</li>
+        <li data-i18n="info.m1"><b>Machamp</b> (lanzador): mantén <kbd>Espacio</kbd> y suelta; su gancho hacia arriba saca la bola disparada.</li>
+        <li data-i18n="info.m2"><b>Tres Bounsweet</b> (centro): rebotes muy potentes sobre una pradera. Con flores rojas puntúan el doble y con rojas y azules, el triple.</li>
+        <li data-i18n="info.m3"><b>Cueva de Venomoth</b> (izquierda, al pie de la montaña): está al final de un carril corto que sale de la mesa. Para entrar hay que hacer que la bola rodee la mesa pegada a la pared, de derecha a izquierda, hasta caer en el carril; un tope de roca a la salida del lanzador evita que el saque de Machamp entre solo. Al entrar sale Venomoth revoloteando. Golpéalo una vez: vuela sobre los Bounsweet, suelta polen naranja y en la pradera brotan <b>flores rojas</b>. La siguiente vez que lo saques brotan <b>azules</b> junto a las rojas. Mientras Venomoth está fuera, la cueva no hace nada; si pierdes la bola antes de golpearlo, vuelve a esconderse sin soltar polen.</li>
+        <li data-i18n="info.m4"><b>Leafeon</b> (borde izquierdo, bajo la cueva): golpea su botón rojo y luego pulsa <kbd>←</kbd> — lanza Hoja Aguda: medio segundo después sale un remolino de hojas hacia la derecha, y si alguna hoja toca la bola, esta sale disparada hacia el centro de la mesa, donde aparece el pokémon de captura. Volver a golpear el botón lo apaga.</li>
+        <li data-i18n="info.m5"><b>Dragonite</b> (arriba a la izquierda): en la pared, donde la montaña cambia de color, se abre un carril que sube hasta Dragonite. Hay que entrar con fuerza: la bola que solo rodea la mesa pasa de largo hacia la cueva. Su coletazo manda la bola al río: baja por la cascada y el arroyo y se hunde en el estanque.</li>
+        <li data-i18n="info.m6"><b>Politoed</b> (en el estanque): asoma la cabeza del agua y saca la bola de vuelta a la mesa; después vuelve a asomar cada 5 segundos. Golpéalo mientras asoma y la bola evoluciona (pokéball → superball → ultraball); entonces se esconde hasta el siguiente coletazo de Dragonite. Si la bola cae por la cascada mientras Politoed está activo, también cuenta como golpe.</li>
+        <li data-i18n="info.m7"><b>Spinda</b>: después de cada polinización —tanto al brotar las flores rojas como las azules— la siguiente vez que cuelas la bola en la cueva sale Spinda, que pasea de lado a lado por encima de la pradera. Golpéalo para abrir el modo captura, con los mismos pokémon que en la playa. Las flores solo se marchitan, y Venomoth vuelve a empezar, si capturas con las azules ya abiertas (o si pierdes la bola).</li>
+        <li data-i18n="info.m8"><b>Bonus de la montaña</b>: cada 3 capturas se abre en el centro de la montaña, 5 s después, la pokébola gigante (20 s). Cuela la bola y saltarás a un bonus; se alternan la <b>manada de Mightyena</b> y la <b>guarida de Zygarde</b>, empezando por la manada. Cuando captures a Zygarde, ya solo quedará la manada.</li>
+        <li data-i18n="info.m9"><b>Bonus · La manada de Mightyena</b>: dentro es de noche y hay 6 Mightyena repartidos al azar entre 4 arbustos que desvían la bola y los esconden; la mitad tiene además una roca delante, así que hay que darles por los lados o por detrás. Se entra ya a oscuras, y cada 10 s aúllan todos y vuelve la oscuridad unos segundos, salvo un círculo de luz alrededor de la bola que crece con cada Mightyena eliminado. Tienes 75 s para eliminarlos a todos y ganar 750.000 puntos.</li>
+        <li data-i18n="info.m10"><b>Bonus · La guarida de Zygarde</b>: un combate en una cueva, con 90 s para derrotar a Zygarde (el marcador no dice cuántos golpes le quedan). Alterna dos movimientos: su ataque levanta a su alrededor un muro de piedras afiladas (cada piedra se desmorona con <b>2 golpes</b>, y la bola que esté dentro sale despedida), y al rato excava, se esconde bajo tierra —donde no se le puede dar— y reaparece en otro sitio. Derrotarlo da 1.000.000 de puntos… y si lo derrotas una segunda vez, no huirá: excavará hasta el centro del hexágono, un aura verde lo envolverá y tomará su <b>forma completa</b>, y en cada vértice se alzará una columna de fuego verde, con cortinas de fuego bajo en los lados que van dejando dos huecos. Cuela la bola entre el fuego y golpéalo <b>una vez</b> para capturarlo por 5.000.000 de puntos.</li>
       </ul>
       <div class="keys">
-        <span><kbd>←</kbd> <kbd>→</kbd></span><span>Flippers · y las acciones de Fennekin y Starmie</span>
-        <span><kbd>Espacio</kbd></span><span>Cargar y soltar el lanzador (Chandelure o Machamp)</span>
-        <span><kbd>Tab</kbd></span><span>Pokédex · <kbd>P</kbd> pausa · <kbd>M</kbd> sonido</span>
+        <span><kbd>←</kbd> <kbd>→</kbd></span><span data-i18n="info.k1">Flippers · y las acciones de Fennekin y Starmie</span>
+        <span><kbd data-i18n="info.espacio">Espacio</kbd></span><span data-i18n="info.k2">Cargar y soltar el lanzador (Chandelure o Machamp)</span>
+        <span><kbd>Tab</kbd></span><span data-i18n="info.k3">Pokédex · <kbd>P</kbd> pausa · <kbd>M</kbd> sonido</span>
       </div>
-      <p class="sub">Los sprites se cargan solos desde <code>assets/sprites/</code>. Para sustituir cualquiera, arrastra un GIF sobre el juego: el nombre del archivo decide la clave (<code>bunneary.gif</code> &rarr; <code>bunneary</code>) y tiene prioridad sobre el de la carpeta.</p>
-      <p class="sub"><b>Practicar los niveles de bonus</b></p>
+      <p class="sub" data-i18n="info.sprites">Los sprites se cargan solos desde <code>assets/sprites/</code>. Para sustituir cualquiera, arrastra un GIF sobre el juego: el nombre del archivo decide la clave (<code>bunneary.gif</code> &rarr; <code>bunneary</code>) y tiene prioridad sobre el de la carpeta.</p>
+      <p class="sub" data-i18n="info.practicar"><b>Practicar los niveles de bonus</b></p>
       <div class="row practicas">
-        <button class="btnmini" id="practicaPista">La pista de atletismo</button>
-        <button class="btnmini" id="practica">El laboratorio de Mew</button>
-        <button class="btnmini" id="practicaMew2">La captura de Mew</button>
-        <button class="btnmini" id="practicaManada">La manada de Mightyena</button>
-        <button class="btnmini" id="practicaZygarde">La guarida de Zygarde</button>
-        <button class="btnmini" id="practicaZygarde2">La captura de Zygarde</button>
+        <button class="btnmini" id="practicaPista" data-i18n="pr.pista">La pista de atletismo</button>
+        <button class="btnmini" id="practica" data-i18n="pr.mew">El laboratorio de Mew</button>
+        <button class="btnmini" id="practicaMew2" data-i18n="pr.mew2">La captura de Mew</button>
+        <button class="btnmini" id="practicaManada" data-i18n="pr.manada">La manada de Mightyena</button>
+        <button class="btnmini" id="practicaZygarde" data-i18n="pr.zyg">La guarida de Zygarde</button>
+        <button class="btnmini" id="practicaZygarde2" data-i18n="pr.zyg2">La captura de Zygarde</button>
       </div>
-      <div class="row"><button id="cerrarInfo">Volver</button></div>
+      <div class="row"><button id="cerrarInfo" data-i18n="comun.volver">Volver</button></div>
     </div>
 
     <div id="over" class="overlay hidden">
-      <h1>Fin de partida</h1>
+      <h1 data-i18n="over.h1">Fin de partida</h1>
       <p class="sub" id="overTxt"></p>
       <!-- las iniciales para la tabla, como en las recreativas -->
       <div id="iniciales" class="hidden">
@@ -95,28 +97,29 @@
           <div class="letra"><button class="flecha" data-d="1">▲</button><span>A</span><button class="flecha" data-d="-1">▼</button></div>
           <div class="letra"><button class="flecha" data-d="1">▲</button><span>A</span><button class="flecha" data-d="-1">▼</button></div>
         </div>
-        <div class="row" style="justify-content:center"><button id="guardarIni">Guardar puntuación</button></div>
+        <div class="row" style="justify-content:center"><button id="guardarIni" data-i18n="over.guardar">Guardar puntuación</button></div>
       </div>
       <div id="tablaOver" class="hidden"></div>
       <div id="overGrid" style="flex:1;overflow:auto"></div>
-      <div class="row"><button id="again">Jugar otra vez</button><button class="ghost" id="toMenu">Volver al menú</button></div>
+      <div class="row"><button id="again" data-i18n="over.otra">Jugar otra vez</button><button class="ghost" id="toMenu" data-i18n="over.menu">Volver al menú</button></div>
     </div>
 
     <div id="puntos" class="overlay hidden">
-      <h1>Mejores <em>puntuaciones</em></h1>
+      <h1 data-i18n="puntos.h1">Mejores <em>puntuaciones</em></h1>
       <div id="tablaPuntos"><div id="tabla-playa" class="mesaTop playa"></div><div id="tabla-montana" class="mesaTop montana"></div></div>
-      <div class="row" style="justify-content:center"><button id="cerrarPuntos">Volver</button></div>
+      <div class="row" style="justify-content:center"><button id="cerrarPuntos" data-i18n="comun.volver">Volver</button></div>
     </div>
 
     <div id="dex" class="overlay hidden">
       <h1>Pokédex</h1>
       <p class="sub" id="dexTxt"></p>
       <div id="dexGrid"></div>
-      <div class="row"><button id="dexClose">Volver al juego</button></div>
+      <div class="row"><button id="dexClose" data-i18n="dex.volver">Volver al juego</button></div>
     </div>
   </div>
 </div>
 
+<script src="idioma.js"></script>
 <script src="juego.js"></script>
 </body>
 </html>
