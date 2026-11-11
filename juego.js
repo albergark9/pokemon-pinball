@@ -1285,8 +1285,108 @@ function gameOver(){
   grid.style.gap='8px';grid.style.alignContent='start';
   fillDex(grid);
   $('over').classList.remove('hidden');
+  finPuntuacion(G.score);
 }
+
+/* ============================================================
+   PUNTUACIONES
+   Un top 10 por mesa, con tres iniciales: assets/puntuaciones-playa.txt y
+   assets/puntuaciones-montana.txt. Las guarda el servidor del juego (servidor.py,
+   POST /api/puntuacion); si no está (un hosting estático), se guardan en este
+   navegador y se mezclan con las del fichero.
+   ============================================================ */
+const LETRAS='ABCDEFGHIJKLMNOPQRSTUVWXYZ', TOP=10;
+const INI={activa:false,letras:['A','A','A'],pos:0,puntos:0,mesa:'playa',guardando:false};
+const MESAS_TOP={playa:'Playa',montana:'Montaña'};
+const mesaTop=()=>G.mesa==='bosque'?'montana':'playa';
+const ordenaTop=l=>l.slice().sort((a,b)=>b.puntos-a.puntos).slice(0,TOP);
+function puntuacionesLocales(mesa){try{return JSON.parse(localStorage.getItem('pinball-puntuaciones-'+mesa)||'[]');}catch(e){return [];}}
+async function cargaPuntuaciones(mesa){
+  const lista=[];
+  try{
+    const r=await fetch('assets/puntuaciones-'+mesa+'.txt',{cache:'no-store'});
+    if(r.ok)(await r.text()).split(/\r?\n/).forEach(l=>{
+      const m=l.match(/^([A-Z]{3})\s+(\d{1,12})\s*$/);if(m)lista.push({nombre:m[1],puntos:+m[2]});});
+  }catch(e){}
+  return ordenaTop(lista.concat(puntuacionesLocales(mesa)));
+}
+async function guardaPuntuacion(mesa,nombre,puntos){
+  try{
+    const r=await fetch('api/puntuacion',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mesa,nombre,puntos})});
+    if(r.ok)return ordenaTop(await r.json());
+  }catch(e){}
+  // sin el servidor del juego, se guarda en este navegador
+  try{localStorage.setItem('pinball-puntuaciones-'+mesa,JSON.stringify(ordenaTop(puntuacionesLocales(mesa).concat([{nombre,puntos}]))));}catch(e){}
+  return cargaPuntuaciones(mesa);
+}
+/* la tabla: posición, iniciales en neón y puntos; marca resalta la partida recién guardada */
+function pintaTabla(el,lista,marca,titulo){
+  el.innerHTML='';
+  if(titulo){const h=document.createElement('p');h.className='tituloTabla';h.textContent=titulo;el.appendChild(h);}
+  const t=document.createElement('div');t.className='tabla';
+  if(!lista.length){const v=document.createElement('div');v.className='vacia';v.textContent='Todavía no hay puntuaciones guardadas.';t.appendChild(v);}
+  let marcada=false;
+  lista.forEach((p,i)=>{
+    const tuya=!marcada&&marca&&p.nombre===marca.nombre&&p.puntos===marca.puntos;if(tuya)marcada=true;
+    [[String(i+1)+'.','pos'],[p.nombre,'ini'],[p.puntos.toLocaleString('es'),'pts']].forEach(c=>{
+      const d=document.createElement('div');d.className=c[1]+(tuya&&c[1]!=='pos'?' tuya':'');d.textContent=c[0];t.appendChild(d);});
+  });
+  el.appendChild(t);
+}
+/* al acabar la partida: si la puntuación entra en las 10 mejores, se piden las iniciales */
+function finPuntuacion(puntos){
+  INI.activa=false;$('iniciales').classList.add('hidden');$('tablaOver').classList.add('hidden');
+  const mesa=mesaTop();
+  cargaPuntuaciones(mesa).then(lista=>{
+    if(G.state!=='over')return;
+    if(puntos>0&&(lista.length<TOP||puntos>lista[lista.length-1].puntos)){
+      let prev='';try{prev=localStorage.getItem('pinball-iniciales')||'';}catch(e){}
+      INI.letras=/^[A-Z]{3}$/.test(prev)?prev.split(''):['A','A','A'];
+      INI.pos=0;INI.puntos=puntos;INI.mesa=mesa;INI.guardando=false;INI.activa=true;
+      $('neonTit').textContent='¡Nueva puntuación en el top 10 de la '+MESAS_TOP[mesa].toLowerCase()+'!';
+      $('iniciales').classList.remove('hidden');pintaIniciales();
+    } else {pintaTabla($('tablaOver'),lista,null,'Top 10 · '+MESAS_TOP[mesa]);$('tablaOver').classList.remove('hidden');}
+  });
+}
+function pintaIniciales(){
+  [...$('letras').children].forEach((d,i)=>{
+    d.classList.toggle('activa',i===INI.pos);d.querySelector('span').textContent=INI.letras[i];});
+}
+function cambiaLetra(i,d){
+  const k=LETRAS.indexOf(INI.letras[i]);
+  INI.letras[i]=LETRAS[(k+d+LETRAS.length)%LETRAS.length];
+  beep(520+d*60,.03,'square',.03);
+}
+function guardaIniciales(){
+  if(!INI.activa||INI.guardando)return;
+  INI.guardando=true;
+  const nombre=INI.letras.join(''),puntos=INI.puntos,mesa=INI.mesa;
+  try{localStorage.setItem('pinball-iniciales',nombre);}catch(e){}
+  guardaPuntuacion(mesa,nombre,puntos).then(lista=>{
+    INI.activa=false;$('iniciales').classList.add('hidden');
+    pintaTabla($('tablaOver'),lista,{nombre,puntos},'Top 10 · '+MESAS_TOP[mesa]);$('tablaOver').classList.remove('hidden');
+    chime([523,659,784,1046],70);
+  });
+}
+// mientras se escriben las iniciales, el teclado es solo para ellas (va antes que el del juego)
+addEventListener('keydown',e=>{
+  if(!INI.activa)return;
+  e.stopImmediatePropagation();
+  const k=e.key;
+  if(k==='ArrowLeft')INI.pos=(INI.pos+2)%3;
+  else if(k==='ArrowRight')INI.pos=(INI.pos+1)%3;
+  else if(k==='ArrowUp')cambiaLetra(INI.pos,1);
+  else if(k==='ArrowDown')cambiaLetra(INI.pos,-1);
+  else if(k==='Backspace')INI.pos=Math.max(0,INI.pos-1);
+  else if(k==='Enter'){e.preventDefault();guardaIniciales();return;}
+  else if(/^[a-zA-Z]$/.test(k)){INI.letras[INI.pos]=k.toUpperCase();INI.pos=Math.min(2,INI.pos+1);beep(640,.03,'square',.03);}
+  else return;
+  e.preventDefault();pintaIniciales();
+},true);
+addEventListener('keyup',e=>{if(INI.activa)e.stopImmediatePropagation();},true);
 function startGame(practica){
+  INI.activa=false;$('iniciales').classList.add('hidden');$('tablaOver').classList.add('hidden');
   G=estadoNuevo();G.state='play';
   if(practica==='bosque'||practica==='manada'||practica==='zygarde'||practica==='zygarde2'){G.mesa=G.escena='bosque';G.bosque=bosqueNuevo();}
   KOFFINGS.forEach(k=>k.lit=0);BOUNSWEETS.forEach(b=>b.lit=0);
@@ -5779,11 +5879,7 @@ function updateHUD(){
 }
 function fillDex(grid){
   grid.innerHTML='';
-  if(!G.order.length){
-    const p=document.createElement('p');p.className='empty';
-    p.textContent='Todavía no has registrado ninguna especie. Golpea a Bunneary (playa) o a Spinda (montaña) para llamar a un pokémon salvaje.';
-    grid.appendChild(p);return;
-  }
+  if(!G.order.length)return;   // sin especies, la cuadrícula se queda vacía
   G.order.forEach(k=>{
     const sp=SPECIES[k]||{k,n:nombreBonito(k)};
     const d=document.createElement('div');d.className='mon';
@@ -5870,16 +5966,29 @@ $('practicaZygarde2').onclick=()=>startGame('zygarde2');
 // desarrolla: en producción el botón no aparece
 {const h=location.hostname;
   if(!(h==='localhost'||h==='127.0.0.1'||h==='::1'||h==='[::1]'||h.endsWith('.localhost')))$('verInfo').style.display='none';}
+// tocar una letra la elige; sus flechas la cambian (para pantallas táctiles)
+[...$('letras').children].forEach((d,i)=>{
+  d.querySelector('span').onclick=()=>{INI.pos=i;pintaIniciales();};
+  d.querySelectorAll('.flecha').forEach(b=>b.onclick=()=>{INI.pos=i;cambiaLetra(i,+b.dataset.d);pintaIniciales();});
+});
+$('guardarIni').onclick=guardaIniciales;
+$('verPuntos').onclick=()=>{
+  $('menu').classList.add('hidden');$('puntos').classList.remove('hidden');
+  // las dos mesas, una al lado de la otra
+  ['playa','montana'].forEach(m=>{const el=$('tabla-'+m);el.innerHTML='';
+    cargaPuntuaciones(m).then(l=>pintaTabla(el,l,null,MESAS_TOP[m]));});
+};
+$('cerrarPuntos').onclick=()=>{$('puntos').classList.add('hidden');$('menu').classList.remove('hidden');};
 $('verInfo').onclick=()=>{$('menu').classList.add('hidden');$('info').classList.remove('hidden');};
 $('cerrarInfo').onclick=()=>{$('info').classList.add('hidden');$('menu').classList.remove('hidden');};
 // otra partida en la misma mesa
 $('again').onclick=()=>startGame(G.mesa==='bosque'?'bosque':undefined);
-$('toMenu').onclick=()=>{$('over').classList.add('hidden');$('info').classList.add('hidden');
+$('toMenu').onclick=()=>{INI.activa=false;$('over').classList.add('hidden');$('info').classList.add('hidden');
   $('menu').classList.remove('hidden');G.state='menu';};
 $('dexClose').onclick=closeDex;
 $('btnPausa').onclick=()=>{if(G.state==='play'&&$('dex').classList.contains('hidden'))G.paused=!G.paused;};
 $('btnDex').onclick=()=>{$('dex').classList.contains('hidden')?openDex():closeDex();};
-$('btnMenu').onclick=()=>{$('over').classList.add('hidden');$('dex').classList.add('hidden');$('info').classList.add('hidden');
+$('btnMenu').onclick=()=>{INI.activa=false;$('puntos').classList.add('hidden');$('over').classList.add('hidden');$('dex').classList.add('hidden');$('info').classList.add('hidden');
   $('menu').classList.remove('hidden');G.state='menu';G.paused=false;};
 $('dexn').onclick=openDex;
 

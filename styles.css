@@ -77,3 +77,37 @@
   @media (max-width:520px){ h1{font-size:25px} }
   #menu{justify-content:center}
   #menu .row{justify-content:center}
+  /* ---- puntuaciones: letras de neón como en las recreativas ---- */
+  .neonTit{margin:0;text-align:center;font-weight:800;font-size:15px;color:#ff7ae0;
+    text-shadow:0 0 6px rgba(255,90,220,.8),0 0 16px rgba(255,90,220,.5)}
+  .letras{display:flex;justify-content:center;gap:18px;margin:4px 0}
+  .letra{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .letra span{font:900 54px/1 ui-monospace,"Consolas",monospace;width:48px;text-align:center;
+    color:#bffaff;text-shadow:0 0 4px #fff,0 0 10px #38e0c6,0 0 22px #38e0c6,0 0 40px rgba(56,224,198,.6);
+    opacity:.55;cursor:pointer;transition:opacity .1s}
+  .letra.activa span{opacity:1;color:#fff;text-shadow:0 0 4px #fff,0 0 12px #ff5ad6,0 0 26px #ff5ad6,0 0 46px rgba(255,90,214,.7);
+    animation:parpadeoNeon 1.1s steps(2,start) infinite}
+  @keyframes parpadeoNeon{50%{opacity:.35}}
+  .flecha{background:none;color:rgba(255,255,255,.3);padding:6px 14px;font-size:28px;line-height:1;min-width:52px;min-height:44px}
+  .letra.activa .flecha{color:#ff9ae6;text-shadow:0 0 8px #ff5ad6}
+  .ayudaIni{text-align:center;font-size:12px}
+  .tabla{display:grid;grid-template-columns:auto 1fr auto;gap:6px 16px;align-items:center;
+    max-width:300px;width:100%;margin:6px auto 0;font-variant-numeric:tabular-nums}
+  .tabla .pos{color:var(--dim);font-weight:700;text-align:right}
+  .tabla .ini{font:900 22px/1.1 ui-monospace,"Consolas",monospace;letter-spacing:.12em;color:#bffaff;
+    text-shadow:0 0 4px #fff,0 0 10px #38e0c6,0 0 20px rgba(56,224,198,.6)}
+  .tabla .pts{font-weight:800;color:var(--sun);text-align:right}
+  .tabla .tuya{color:#fff;text-shadow:0 0 4px #fff,0 0 12px #ff5ad6,0 0 24px #ff5ad6}
+  .tabla .vacia{grid-column:1/-1;text-align:center;color:var(--dim);font-size:13px}
+  #puntos{justify-content:center}
+  #puntos h1{text-align:center}
+  /* un top 10 por mesa: en el menú, las dos tablas una al lado de la otra */
+  #tablaPuntos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mesaTop{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 8px}
+  .mesaTop .tabla{gap:5px 8px}
+  .mesaTop .tabla .ini{font-size:17px}
+  .mesaTop .tabla .pts{font-size:12px}
+  .mesaTop .tabla .pos{font-size:12px}
+  .tituloTabla{margin:0 0 4px;text-align:center;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--turq);
+    text-shadow:0 0 10px rgba(56,224,198,.6)}
+  .mesaTop.montana .tituloTabla{color:#9fdc72;text-shadow:0 0 10px rgba(159,220,114,.6)}

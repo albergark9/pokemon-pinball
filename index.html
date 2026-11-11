@@ -32,7 +32,7 @@
         <button id="jugar" class="mesa"><img src="assets/sprites/playa.png" alt=""><span>Jugar · Playa</span></button>
         <button id="jugarBosque" class="mesa bosque"><img src="assets/sprites/montana.png" alt=""><span>Jugar · Montaña</span></button>
       </div>
-      <div class="row"><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
+      <div class="row"><button class="btnmini" id="verPuntos" style="width:auto;padding:10px 18px">Puntuaciones</button><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
     </div>
 
     <div id="info" class="overlay hidden">
@@ -87,8 +87,25 @@
     <div id="over" class="overlay hidden">
       <h1>Fin de partida</h1>
       <p class="sub" id="overTxt"></p>
+      <!-- las iniciales para la tabla, como en las recreativas -->
+      <div id="iniciales" class="hidden">
+        <p class="neonTit" id="neonTit">¡Nueva puntuación en el top 10!</p>
+        <div class="letras" id="letras">
+          <div class="letra"><button class="flecha" data-d="1">▲</button><span>A</span><button class="flecha" data-d="-1">▼</button></div>
+          <div class="letra"><button class="flecha" data-d="1">▲</button><span>A</span><button class="flecha" data-d="-1">▼</button></div>
+          <div class="letra"><button class="flecha" data-d="1">▲</button><span>A</span><button class="flecha" data-d="-1">▼</button></div>
+        </div>
+        <div class="row" style="justify-content:center"><button id="guardarIni">Guardar puntuación</button></div>
+      </div>
+      <div id="tablaOver" class="hidden"></div>
       <div id="overGrid" style="flex:1;overflow:auto"></div>
       <div class="row"><button id="again">Jugar otra vez</button><button class="ghost" id="toMenu">Volver al menú</button></div>
+    </div>
+
+    <div id="puntos" class="overlay hidden">
+      <h1>Mejores <em>puntuaciones</em></h1>
+      <div id="tablaPuntos"><div id="tabla-playa" class="mesaTop playa"></div><div id="tabla-montana" class="mesaTop montana"></div></div>
+      <div class="row" style="justify-content:center"><button id="cerrarPuntos">Volver</button></div>
     </div>
 
     <div id="dex" class="overlay hidden">
