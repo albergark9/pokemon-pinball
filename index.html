@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Pinball Alola</title>
+<title>Pinball Pokémon</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -26,14 +26,12 @@
     <canvas id="c" width="480" height="760"></canvas>
 
     <div id="menu" class="overlay">
-      <h1>Pinball <em>Alola</em></h1>
+      <h1>Pinball <em>Pokémon</em></h1>
       <p class="sub">Elige mesa: la playa al atardecer o la montaña de la cascada.</p>
-      <div class="row"><button id="jugar">Jugar · Playa</button><button id="jugarBosque" class="bosque">Jugar · Montaña</button></div>
-      <div class="row"><button class="btnmini" id="practica" style="width:auto;padding:10px 18px">Practicar el nivel de Mew</button></div>
-      <div class="row"><button class="btnmini" id="practicaPista" style="width:auto;padding:10px 18px">Practicar la pista de atletismo</button></div>
-      <div class="row"><button class="btnmini" id="practicaManada" style="width:auto;padding:10px 18px">Practicar la manada de Mightyena</button></div>
-      <div class="row"><button class="btnmini" id="practicaZygarde" style="width:auto;padding:10px 18px">Practicar la guarida de Zygarde</button></div>
-      <div class="row"><button class="btnmini" id="practicaZygarde2" style="width:auto;padding:10px 18px">Practicar la captura de Zygarde</button></div>
+      <div class="mesas">
+        <button id="jugar" class="mesa"><img src="assets/sprites/playa.png" alt=""><span>Jugar · Playa</span></button>
+        <button id="jugarBosque" class="mesa bosque"><img src="assets/sprites/montana.png" alt=""><span>Jugar · Montaña</span></button>
+      </div>
       <div class="row"><button class="btnmini" id="verInfo" style="width:auto;padding:10px 18px">Ver información</button></div>
     </div>
 
@@ -74,6 +72,15 @@
         <span><kbd>Tab</kbd></span><span>Pokédex · <kbd>P</kbd> pausa · <kbd>M</kbd> sonido</span>
       </div>
       <p class="sub">Los sprites se cargan solos desde <code>assets/sprites/</code>. Para sustituir cualquiera, arrastra un GIF sobre el juego: el nombre del archivo decide la clave (<code>bunneary.gif</code> &rarr; <code>bunneary</code>) y tiene prioridad sobre el de la carpeta.</p>
+      <p class="sub"><b>Practicar los niveles de bonus</b></p>
+      <div class="row practicas">
+        <button class="btnmini" id="practicaPista">La pista de atletismo</button>
+        <button class="btnmini" id="practica">El laboratorio de Mew</button>
+        <button class="btnmini" id="practicaMew2">La captura de Mew</button>
+        <button class="btnmini" id="practicaManada">La manada de Mightyena</button>
+        <button class="btnmini" id="practicaZygarde">La guarida de Zygarde</button>
+        <button class="btnmini" id="practicaZygarde2">La captura de Zygarde</button>
+      </div>
       <div class="row"><button id="cerrarInfo">Volver</button></div>
     </div>
 

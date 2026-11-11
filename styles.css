@@ -24,7 +24,7 @@
     border:1px solid rgba(255,255,255,.08);overflow:hidden;font-size:11.5px;line-height:1.35;letter-spacing:.02em}
   #bannerTxt{position:relative;z-index:2;font-weight:600}
   #bannerBar{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,rgba(56,224,198,.35),rgba(143,123,255,.25));transition:width .12s linear}
-  #stage{position:relative;height:min(97vh,780px);aspect-ratio:480/760;flex-shrink:0}
+  #stage{position:relative;height:min(97vh,780px);aspect-ratio:480/760;flex-shrink:0;container-type:size}
   .btnmini{width:100%;padding:9px 10px;font-size:13px;background:rgba(255,255,255,.09);color:var(--foam)}
   #sideHelp{font-size:10px;color:var(--dim);line-height:1.6}
   @media (max-width:740px){
@@ -49,6 +49,20 @@
     background:var(--turq);color:#03222a;letter-spacing:.02em}
   button.ghost{background:rgba(255,255,255,.09);color:var(--foam)}
   button.bosque{background:#9fdc72;color:#123016}
+  /* menú: las dos mesas como tarjetas grandes con su captura dentro */
+  .mesas{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  button.mesa{display:flex;flex-direction:column;gap:8px;padding:8px 8px 10px;
+    border-radius:14px;transition:transform .12s ease,box-shadow .12s ease;
+    box-shadow:0 10px 26px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.08) inset}
+  /* la captura se ajusta al alto que queda libre en el tablero (100cqh = alto de #stage):
+     así el menú cabe entero sin barra de desplazamiento, y el botón sigue ocupando su
+     mitad del ancho */
+  button.mesa img{height:min(calc(100cqh - 250px),calc((100cqw - 70px)/2*940/603));width:auto;
+    aspect-ratio:603/940;max-width:100%;margin:0 auto;border-radius:9px;display:block;background:rgba(0,0,0,.25)}
+  button.mesa span{font-size:15px}
+  button.mesa:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(0,0,0,.55),0 0 18px rgba(56,224,198,.35)}
+  button.mesa.bosque:hover{box-shadow:0 14px 32px rgba(0,0,0,.55),0 0 18px rgba(159,220,114,.4)}
+  .practicas .btnmini{width:auto;flex:1 1 40%;padding:10px 12px}
   .row{display:flex;gap:10px;flex-wrap:wrap}
   .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;color:#a9c6d1;align-items:center}
   kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-bottom-width:2px;
@@ -61,3 +75,5 @@
   .mon small{display:block;font-size:9.5px;color:#bcd6df;margin-top:2px;line-height:1.25;word-break:break-word}
   .empty{color:var(--dim);font-size:13px}
   @media (max-width:520px){ h1{font-size:25px} }
+  #menu{justify-content:center}
+  #menu .row{justify-content:center}

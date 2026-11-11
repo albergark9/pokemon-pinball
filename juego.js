@@ -24,7 +24,7 @@ const SPRITES_EXTERNOS={
   // capturables (arrastra doduo.gif, braixen.gif, ... sobre la ventana)
   doduo:'', dragonair:'', arcanine:'', noibat:'', garchomp:'', tyrunt:'',combusken:'',
   braixen:'', delphox:'', fennekin:'', torracat:'', glaceon:'',skiddo:'',
-  drapion:'', lucario:'', pichu:'', noivern:'', salazzle:'', riolu:'',lurantis:'',
+  drapion:'', lucario:'', pichu:'', salazzle:'', riolu:'',lurantis:'',
   sceptile:'', relicanth:'', popplio:'', blaziken:'',venusaur:'',eevee:'',
   // bonus del laboratorio secreto
   'mew-durmiendo':'', 'mew-despierto':'', 'mew-volando':'', 'mew-ataque':'', 'mew-huida':'',
@@ -63,7 +63,7 @@ const RECORTAR=new Set(['bounsweet-decoracion','machamp-decoracion','venomoth-de
   'mightyena-1','mightyena-2','mightyena-aulla','zygarde-final']);
 const CAPTURABLES=['doduo','dragonair','arcanine','noibat','garchomp','tyrunt','skiddo','combusken',
   'braixen','delphox','fennekin','torracat','glaceon','drapion','lucario','venusaur','eevee','lurantis',
-  'pichu','noivern','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
+  'pichu','salazzle','riolu','sceptile','relicanth','popplio','blaziken'];
 const nombreBonito=k=>k.charAt(0).toUpperCase()+k.slice(1);
 // Mew no está en el sorteo: solo entra en la pokédex si lo capturas en el bonus
 const totalDex=()=>CAPTURABLES.length+(G.mewCapturado?1:0)+(G.zygCapturado?1:0);
@@ -1296,6 +1296,8 @@ function startGame(practica){
   newBall();updateHUD();
   // práctica: directo al nivel de bonus elegido, sin pasar por Alola
   if(practica==='mew')entrarMew();
+  // la segunda visita al laboratorio: Mew ya huyó una vez, así que esta vez se le captura
+  else if(practica==='mew2'){G.mewHuido=true;G.mewVisitas=1;entrarMew();}
   else if(practica==='pista')entrarPista();
   else if(practica==='manada')entrarManada();
   else if(practica==='zygarde')entrarZygarde();
@@ -4313,13 +4315,29 @@ function finCapturaBosque(){
   if(B.flores.length)B.marchita=40;
   B.estado=0;B.nivel=0;
 }
+/* como en la playa, perder la bola devuelve la mesa a su estado inicial: se marchitan las
+   flores (y se pierde su multiplicador), Venomoth y Spinda vuelven a la cueva, Politoed se
+   hunde y deja de estar activo, Leafeon se apaga y la captura en curso se pierde. La bola
+   vuelve a ser una pokéball y el pokémon salvaje desaparece en loseBall, para las dos mesas */
 function pierdeBolaBosque(){
-  const B=G.bosque,v=B.vm;
-  B.leaf.boton=false;B.leaf.fantasma=0;   // como Fennekin: el botón se apaga con la bola
-  B.cueva=0;B.gancho=0;
-  // si Venomoth seguía revoloteando vuelve a la cueva sin soltar polen: esa visita no cuenta
-  if(v.fase==='sale'||v.fase==='vuela')vuelveVenomoth();
-  if(G.mode)finCapturaBosque();   // perder la bola en plena captura es perder el pokémon
+  const B=G.bosque,v=B.vm,p=B.sp,P=B.pol;
+  B.leaf={boton:false,cd:0,ataque:0,fantasma:0,hojas:0,espera:0,lanzo:false};
+  B.cueva=0;B.gancho=0;B.lanzada=false;
+  // Venomoth vuelve a la cueva, aunque estuviera soltando polen: esa pasada no cuenta
+  if(v.fase&&v.fase!=='vuelve')vuelveVenomoth();
+  B.polen=[];
+  // Spinda, si había salido, vuelve a esconderse detrás de la cueva
+  if(p.fase==='sale'||p.fase==='pasea'){p.fase='vuelve';p.t=0;p.px=p.x;p.py=p.y;}
+  finCapturaBosque();   // flores marchitas y contador de polen a cero
+  // Politoed se hunde y no vuelve a asomar hasta el próximo coletazo de Dragonite
+  P.activo=false;P.escupe=false;P.cd=0;P.inmune=0;
+  if(P.fase==='sube'||P.fase==='juega'){const t0=P.fase==='sube'?POL_SUBE-P.t:0;P.fase='baja';P.t=t0;}
+}
+/* la ayuda de la playa: primero tumbar la valla, luego el Bunneary */
+function guiaPlaya(){
+  if(G.valla)return G.vueltas>=1?'Una vuelta completa más al tablero para tumbar la valla'
+                                :'Da dos vueltas completas al tablero para tumbar la valla';
+  return 'Golpea a Bunneary para buscar pokémon';
 }
 function guiaBosque(){
   const B=G.bosque;
@@ -5754,7 +5772,7 @@ function updateHUD(){
     w=(G.timer/G.timerMax*100)+'%';
     m=(G.msgT>0?G.msg:'MODO CAPTURA · '+Math.ceil(G.timer/60)+'s');
   }else{
-    m=G.msgT>0?G.msg:(G.state==='play'?(G.escena==='bosque'?guiaBosque():'Golpea a Bunneary para buscar pokémon'):'Pulsa Jugar para empezar');
+    m=G.msgT>0?G.msg:(G.state==='play'?(G.escena==='bosque'?guiaBosque():guiaPlaya()):'Pulsa Jugar para empezar');
   }
   if(HUD_ANT.bar!==w){HUD_ANT.bar=w;bar.style.width=w;}
   if(HUD_ANT.txt!==m){HUD_ANT.txt=m;txt.textContent=m;}
@@ -5843,10 +5861,15 @@ stage.addEventListener('pointercancel',release);
 $('jugar').onclick=()=>startGame();
 $('jugarBosque').onclick=()=>startGame('bosque');
 $('practica').onclick=()=>startGame('mew');
+$('practicaMew2').onclick=()=>startGame('mew2');
 $('practicaPista').onclick=()=>startGame('pista');
 $('practicaManada').onclick=()=>startGame('manada');
 $('practicaZygarde').onclick=()=>startGame('zygarde');
 $('practicaZygarde2').onclick=()=>startGame('zygarde2');
+// «Ver información» (con las prácticas de los bonus) solo se ve en local, mientras se
+// desarrolla: en producción el botón no aparece
+{const h=location.hostname;
+  if(!(h==='localhost'||h==='127.0.0.1'||h==='::1'||h==='[::1]'||h.endsWith('.localhost')))$('verInfo').style.display='none';}
 $('verInfo').onclick=()=>{$('menu').classList.add('hidden');$('info').classList.remove('hidden');};
 $('cerrarInfo').onclick=()=>{$('info').classList.add('hidden');$('menu').classList.remove('hidden');};
 // otra partida en la misma mesa
