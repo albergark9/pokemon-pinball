@@ -11,6 +11,8 @@ resultante. El juego lee esos mismos ficheros con un GET normal.
 
 Uso: python servidor.py [puerto]
 El puerto sale del argumento, si no de la variable PORT y si no es el 5173.
+HOST limita la interfaz (en producción 127.0.0.1, para que solo nginx hable con él) y
+PUNTUACIONES_DIR mueve los .txt fuera del repo, para que un git pull no choque con ellos.
 """
 import http.server
 import json
@@ -20,13 +22,17 @@ import sys
 import threading
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
+# En produccion las puntuaciones viven fuera del repo (PUNTUACIONES_DIR) para que un
+# git pull no choque con los ficheros que escribe el propio servidor. Sin la variable
+# se comporta igual que antes: assets/ dentro del proyecto.
+DIR_PUNTUACIONES = os.environ.get('PUNTUACIONES_DIR') or os.path.join(RAIZ, 'assets')
 MESAS = ('playa', 'montana')   # solo estos nombres: el de la mesa acaba en una ruta de fichero
 MAX_PUNTUACIONES = 10
 cerrojo = threading.Lock()   # dos partidas que acaban a la vez no se pisan el fichero
 
 
 def fichero(mesa):
-    return os.path.join(RAIZ, 'assets', f'puntuaciones-{mesa}.txt')
+    return os.path.join(DIR_PUNTUACIONES, f'puntuaciones-{mesa}.txt')
 
 
 def lee_puntuaciones(mesa):
@@ -105,12 +111,16 @@ class SinCache(http.server.SimpleHTTPRequestHandler):
 
 class Servidor(http.server.ThreadingHTTPServer):
     # en Windows, reutilizar la dirección deja que dos servidores escuchen a la vez en el
-    # mismo puerto y no se sabe cuál responde: mejor que falle si el puerto está ocupado
-    allow_reuse_address = False
+    # mismo puerto y no se sabe cuál responde: mejor que falle si el puerto está ocupado.
+    # En Linux SO_REUSEADDR no permite eso (haría falta SO_REUSEPORT) y en cambio evita que
+    # un reinicio del servicio falle por un socket aún en TIME_WAIT: allí sí interesa.
+    allow_reuse_address = os.name != 'nt'
 
 
 if __name__ == '__main__':
     puerto = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('PORT', 5173))
+    host = os.environ.get('HOST', '')   # en producción 127.0.0.1: solo nginx habla con él
+    os.makedirs(DIR_PUNTUACIONES, exist_ok=True)
     os.chdir(RAIZ)   # sirve la carpeta del juego aunque se arranque desde otro sitio
     print(f'Pinball en http://localhost:{puerto} (sin caché; Ctrl+C para parar)')
-    Servidor(('', puerto), SinCache).serve_forever()
+    Servidor((host, puerto), SinCache).serve_forever()

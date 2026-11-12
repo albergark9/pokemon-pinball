@@ -13,3 +13,8 @@ Thumbs.db
 
 # Configuracion local del editor
 /.claude/
+
+# Puntuaciones: las escribe el servidor en marcha, no son codigo.
+# En produccion viven en /var/lib/pokemonpinball (PUNTUACIONES_DIR).
+/assets/puntuaciones-playa.txt
+/assets/puntuaciones-montana.txt
